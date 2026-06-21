@@ -1,0 +1,88 @@
+# CD — staging 자동 배포 + production HITL 게이트 (SPEC v0.3 / REQ-CD-1, REQ-CD-2)
+# 비밀값은 오직 GitHub Actions Secrets / Environment Secrets에서만 — 평문 금지.
+name: cd
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  # 롤백 경로: 특정 버전으로 되돌릴 때 수동 실행.
+  workflow_dispatch:
+    inputs:
+      rollback_to:
+        description: '되돌릴 버전 (예: v1.2.3). 비우면 일반 배포.'
+        required: false
+        default: ''
+
+# 최소 권한. 릴리스가 필요한 production 잡에서만 contents: write 부여.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # 롤백 실행 때는 새로 빌드하지 않음(이미 있는 버전을 재배포).
+    if: ${{ github.event.inputs.rollback_to == '' }}
+    runs-on: self-hosted   # ★ 강제: self-hosted 원칙 — GitHub-hosted 금지 (ci-cd-hitl.md §0)
+    steps:
+      - uses: actions/checkout@v4
+      - name: 이미지/아티팩트 빌드
+        # placeholder — 실제 빌드로 교체.
+        run: |
+          echo "docker build -t myapp:${GITHUB_SHA} ."
+          # 또는 패키지 빌드: python -m build
+
+  deploy-staging:
+    if: ${{ github.event.inputs.rollback_to == '' }}
+    needs: build
+    runs-on: self-hosted   # ★ 강제: self-hosted 원칙 — GitHub-hosted 금지 (ci-cd-hitl.md §0)
+    steps:
+      - uses: actions/checkout@v4
+      - name: staging 배포
+        run: echo "deploy to staging..."   # placeholder
+      - name: smoke 테스트
+        # 이 스킬은 머지 전에 E2E를 끝내므로, staging smoke는 얇은 재확인일 뿐.
+        id: smoke
+        run: echo "smoke ok"   # placeholder
+      - name: 배포 요약 기록
+        run: |
+          {
+            echo "## staging 배포"
+            echo "- version: ${GITHUB_REF_NAME} (${GITHUB_SHA::7})"
+            echo "- staging URL: https://staging.example.com"
+            echo "- smoke: ok"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-production:
+    if: ${{ github.event.inputs.rollback_to == '' }}
+    needs: deploy-staging
+    runs-on: self-hosted   # ★ 강제: self-hosted 원칙 — GitHub-hosted 금지 (ci-cd-hitl.md §0)
+    # production Environment에 required reviewers가 걸려 있어(부트스트랩이
+    # config의 hitl.reviewers로 등록) GitHub가 사람 승인까지 잡을 멈춘다(HITL).
+    # 이 게이트는 절대 우회하지 말 것.
+    environment: production
+    permissions:
+      contents: write   # 릴리스 생성용
+    steps:
+      - uses: actions/checkout@v4
+      - name: production 배포
+        run: echo "deploy to production..."   # placeholder (승인 후 실행)
+      - name: health check
+        run: echo "health ok"   # placeholder
+      - name: GitHub Release 생성
+        run: gh release create "${GITHUB_REF_NAME}" --generate-notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  rollback:
+    # 수동 롤백 — workflow_dispatch에 버전을 줬을 때만.
+    if: ${{ github.event.inputs.rollback_to != '' }}
+    runs-on: self-hosted   # ★ 강제: self-hosted 원칙 — GitHub-hosted 금지 (ci-cd-hitl.md §0)
+    # 롤백도 사람 승인을 거친다(같은 production 게이트).
+    environment: production
+    steps:
+      - name: 지정 버전으로 재배포
+        run: |
+          echo "rollback to ${{ github.event.inputs.rollback_to }}"   # placeholder
+          # 예: docker pull myapp:${{ github.event.inputs.rollback_to }} && deploy
+      - name: health check
+        run: echo "health ok after rollback"   # placeholder

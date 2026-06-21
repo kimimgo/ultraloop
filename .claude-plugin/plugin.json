@@ -1,0 +1,25 @@
+{
+  "name": "ultraloop",
+  "version": "0.2.0",
+  "description": "Autonomous software-engineering loop, split into two role-separated skills. ultraloop:pm plans (product strategy -> outcome roadmap -> red-team -> spec -> prioritize) and writes the GitHub Projects board; ultraloop:build reads that board and ships it via TDD + pre-merge production E2E, faithfully logging progress back to the board. The board is the single source of truth.",
+  "author": {
+    "name": "kimimgo"
+  },
+  "homepage": "https://github.com/kimimgo/ultraloop",
+  "repository": "https://github.com/kimimgo/ultraloop",
+  "license": "MIT",
+  "keywords": [
+    "autonomous-agent",
+    "self-paced-loop",
+    "tdd",
+    "github-projects",
+    "roadmap",
+    "e2e",
+    "pm",
+    "agentic"
+  ],
+  "skills": [
+    "./skills/pm",
+    "./skills/build"
+  ]
+}

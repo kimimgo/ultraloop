@@ -1,0 +1,35 @@
+{
+  "description": "GitHub Projects v2 보드 필드 정의. 부트스트랩이 멱등 생성에 참조한다(이미 있으면 건너뜀). 보드가 진행 상태의 SoT(Source of Truth)이며, PROGRESS.md는 이 보드에서 재생성되는 읽기전용 뷰다.",
+  "fields": [
+    {
+      "name": "Status",
+      "dataType": "SINGLE_SELECT",
+      "options": ["Backlog", "Ready", "In-Progress", "In-Review", "E2E", "Done", "Blocked", "Parked"]
+    },
+    {
+      "name": "Priority",
+      "dataType": "SINGLE_SELECT",
+      "options": ["P0", "P1", "P2"]
+    },
+    {
+      "name": "Size",
+      "dataType": "SINGLE_SELECT",
+      "options": ["XS", "S", "M", "L", "XL"]
+    },
+    {
+      "name": "Roadmap-Item",
+      "dataType": "TEXT",
+      "note": "이 카드가 속한 Epic/로드맵 항목 식별자"
+    },
+    {
+      "name": "Depends-on",
+      "dataType": "TEXT",
+      "note": "선행 이슈 번호(들). 예: #12, #15"
+    },
+    {
+      "name": "E2E-Evidence",
+      "dataType": "TEXT",
+      "note": "E2E 증거 경로/URL. 스크린샷 원본 임베드 금지(<2MB 링크/썸네일)"
+    }
+  ]
+}

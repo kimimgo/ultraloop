@@ -1,0 +1,17 @@
+[
+  { "name": "type:feat", "color": "0e8a16", "description": "새 기능" },
+  { "name": "type:fix", "color": "d73a4a", "description": "버그 수정" },
+  { "name": "type:test", "color": "1d76db", "description": "테스트 추가/보강" },
+  { "name": "type:refactor", "color": "5319e7", "description": "동작 변화 없는 구조 개선" },
+  { "name": "type:chore", "color": "cfd3d7", "description": "잡무/빌드/설정/의존성" },
+  { "name": "type:docs", "color": "0075ca", "description": "문서 변경" },
+  { "name": "bug", "color": "b60205", "description": "결함. 재현 절차 필요" },
+  { "name": "edge-case", "color": "fbca04", "description": "엣지 케이스 처리/테스트 대상" },
+  { "name": "blocked", "color": "000000", "description": "의존성/외부 요인으로 막힘" },
+  { "name": "security", "color": "ee0701", "description": "보안 이슈(시크릿 노출, 취약점 등)" },
+  { "name": "perf", "color": "c5def5", "description": "성능 관련" },
+  { "name": "hitl", "color": "e99695", "description": "사람 승인/판단 필요 (human-in-the-loop)" },
+  { "name": "e2e:fail", "color": "d93f0b", "description": "E2E 시나리오 실패. merge 차단" },
+  { "name": "epic", "color": "3e4b9e", "description": "로드맵 항목 묶음(여러 작업 카드의 상위)" },
+  { "name": "roadmap:approved", "color": "0e8a16", "description": "로드맵 승인 마커 — 루프 진입 게이트(roadmap_sync.sh가 판정)" }
+]

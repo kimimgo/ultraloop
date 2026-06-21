@@ -1,0 +1,28 @@
+{
+  "name": "ultraloop",
+  "owner": {
+    "name": "kimimgo"
+  },
+  "metadata": {
+    "description": "Autonomous software-engineering loop — role-separated PM planning + faithful board execution.",
+    "version": "0.2.0",
+    "pluginRoot": "."
+  },
+  "plugins": [
+    {
+      "name": "ultraloop",
+      "source": "./",
+      "description": "Two skills sharing one engine: ultraloop:pm (plan -> write the board) and ultraloop:build (read the board -> TDD + pre-merge E2E -> ship, logging progress to the board). Board is the single source of truth; roles and permissions are fully separated.",
+      "version": "0.2.0",
+      "keywords": [
+        "autonomous-agent",
+        "self-paced-loop",
+        "tdd",
+        "github-projects",
+        "roadmap",
+        "e2e",
+        "pm"
+      ]
+    }
+  ]
+}

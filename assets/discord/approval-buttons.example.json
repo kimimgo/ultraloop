@@ -1,0 +1,29 @@
+{
+  "_comment": "ultraloop 승인 메시지 payload 예시 (raw REST / 게이트웨이 봇 공용). custom_id 의 <APPROVAL_ID> 는 승인 건 식별자로 치환한다. style 3=success(green), 4=danger(red).",
+  "embeds": [
+    {
+      "title": "승인 요청 · <APPROVAL_ID>",
+      "description": "프로덕션 DB 마이그레이션을 실행할까요?\n\n**risk:** `high`\n**TTL:** 120분",
+      "color": 3447003
+    }
+  ],
+  "components": [
+    {
+      "type": 1,
+      "components": [
+        {
+          "type": 2,
+          "style": 3,
+          "label": "[Y] 승인",
+          "custom_id": "approve:<APPROVAL_ID>"
+        },
+        {
+          "type": 2,
+          "style": 4,
+          "label": "[N] 거부",
+          "custom_id": "reject:<APPROVAL_ID>"
+        }
+      ]
+    }
+  ]
+}

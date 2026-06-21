@@ -1,0 +1,114 @@
+# 봇 QA — CI (SPEC v0.3 / REQ-CI-1)
+# 빠른 검사(lint·typecheck·unit)는 항상, 무거운 검사(test·build·smoke)는 PR에서만.
+# 기본 스택은 Python. Node로 바꿀 때는 주석 처리된 부분 참고.
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+    # 문서만 바뀐 PR은 CI를 건너뛰려면 paths-ignore 사용:
+    # paths-ignore:
+    #   - '**.md'
+    #   - 'docs/**'
+  push:
+    # main은 CD가 담당하므로 제외.
+    branches-ignore: [main]
+
+# 같은 브랜치의 옛 실행은 취소 — 최신 1건만 유지(폭주 방지).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # --- 빠른 티어: 모든 push/PR에서 항상 실행 ---
+  lint:
+    runs-on: self-hosted   # ★ 강제: self-hosted 원칙 — GitHub-hosted 금지 (ci-cd-hitl.md §0)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: deps 설치
+        run: pip install -e '.[dev]'   # 또는: uv pip install -e '.[dev]'
+      - name: lint
+        run: ruff check .
+      # --- Node 예시 ---
+      # - uses: actions/setup-node@v4
+      #   with: { node-version: '20' }
+      # - run: corepack enable && pnpm install --frozen-lockfile
+      # - run: pnpm lint
+
+  typecheck:
+    runs-on: self-hosted   # ★ 강제: self-hosted 원칙 — GitHub-hosted 금지 (ci-cd-hitl.md §0)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e '.[dev]'
+      - name: typecheck
+        run: mypy .
+      # --- Node 예시 ---
+      # - run: pnpm typecheck   # tsc --noEmit
+
+  unit:
+    runs-on: self-hosted   # ★ 강제: self-hosted 원칙 — GitHub-hosted 금지 (ci-cd-hitl.md §0)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e '.[dev]'
+      - name: unit 테스트(빠른 것만)
+        run: pytest tests/unit -q
+      # --- Node 예시 ---
+      # - run: pnpm test:unit
+
+  # --- 무거운 티어: PR에서만 실행 ---
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: self-hosted   # ★ 강제: self-hosted 원칙 — GitHub-hosted 금지 (ci-cd-hitl.md §0)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e '.[dev]'
+      - name: 전체 테스트 + 커버리지
+        # 커버리지 임계값은 레포 설정(기본 80%)을 따름.
+        # 하드코딩 숫자로 빌드를 깨지 말 것 — 아래 줄을 에이전트가 조정.
+        run: pytest --cov --cov-report=term-missing --cov-fail-under=80
+      # --- Node 예시 ---
+      # - run: pnpm test:cov
+
+  build:
+    if: github.event_name == 'pull_request'
+    runs-on: self-hosted   # ★ 강제: self-hosted 원칙 — GitHub-hosted 금지 (ci-cd-hitl.md §0)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install build
+      - name: 패키지 빌드
+        run: python -m build
+      # --- Node 예시 ---
+      # - run: pnpm build
+
+  smoke:
+    if: github.event_name == 'pull_request'
+    needs: build
+    runs-on: self-hosted   # ★ 강제: self-hosted 원칙 — GitHub-hosted 금지 (ci-cd-hitl.md §0)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e '.'
+      - name: smoke 테스트(앱이 뜨는지만 확인)
+        run: python -c "import app; print('ok')"   # 실제 진입점으로 교체
+      # --- Node 예시 ---
+      # - run: node -e "require('./dist'); console.log('ok')"

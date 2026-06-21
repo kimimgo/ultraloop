@@ -1,0 +1,169 @@
+# ──────────────────────────────────────────────────────────────────────────
+#  ultraloop.config.yaml  —  복사해서 대상 레포 루트에 두고, 환경에 맞춰 값만 바꾼다.
+#    cp ${CLAUDE_PLUGIN_ROOT}/config.example.yaml ./ultraloop.config.yaml
+#
+#  철학: 이 스킬은 "비결정적"이다. 아래 값은 *기본 가이드*이며, 비워두면(""/auto)
+#  매 loop 의 ①계획 점검에서 에이전트가 프로젝트 환경을 보고 스스로 결정한다.
+#  꼭 채워야 하는 건 [필수] 표시뿐. 나머지는 모르면 비워라 — 스킬이 probe 한다.
+# ──────────────────────────────────────────────────────────────────────────
+
+# ── 대상 & 미션 ────────────────────────────────────────────────────────────
+# [필수] 대상 레포 (owner/name 또는 https URL). 슬래시 인자로 넘기면 그 값이 우선.
+repo: ""                          # 예: owner/my-app   (결정1: 첫 드라이런 레포)
+
+# [필수 둘 중 하나] 이번 실행의 목표·범위·DoD 보강.
+mission_file: ""                  # 외부 마크다운 경로(권장). 길고 상세한 스펙에 적합.
+mission: |                        # 또는 인라인 한 단락.
+  (여기에 미션을 적어도 됨 — 무엇을, 왜, 무엇이 "100% 작동"인지)
+
+default_branch: main
+coverage_target: 80               # DoD 게이트 — 테스트 커버리지 목표(%)
+
+# ── 로드맵 SoT = GitHub Project(v2) 보드 ───────────────────────────────────
+#  보드가 유일한 가변 상태원(SoT). PROGRESS.md 는 여기서 재생성되는 읽기전용 뷰.
+roadmap:
+  provider: github_projects_v2    # github_projects_v2 | milestones(폴백, R2)
+  project_node_id: ""             # 부트스트랩이 query-then-create 후 자동 기록(멱등). 손대지 말 것.
+  project_number: ""              # 〃 (사람이 보는 번호)
+  # project-scope PAT/App 필요 — 기본 GITHUB_TOKEN 으론 보드 자동화 불가(REQ-CI-3).
+  #   gh auth: PAT 에 'project' scope. env GH_TOKEN/UE_PROJECT_TOKEN 중 하나로 주입.
+  token_env: UE_PROJECT_TOKEN     # 이 env 이름에서 보드용 토큰을 읽는다(없으면 gh 기본).
+  ready_status: "Ready"           # "착수 가능" Status 옵션명. ⚠️ GitHub 기본 보드(Todo/In Progress/Done)는
+                                  #   Ready 옵션이 없다 → "Todo"로 바꿔야 워커가 일을 집는다(실제 멀티레포 토폴로지에서 검증).
+  approved: false                 # milestones 폴백 경로의 승인 플래그(provider=github_projects_v2면
+                                  #   라벨 roadmap:approved 로 판정하므로 이 값 무시).
+
+# ── 스펙 권위 = GitHub Spec Kit (기획 게이트 산출물, SKILL §4.1.3) ───────────
+#  게이트에서 `specify init . --integration claude --script sh` (v0.10.x). ⚠️ Claude 통합은 슬래시 아닌
+#  .claude/skills/speckit-* 스킬로 설치 — speckit-constitution/-specify/-clarify/-plan/-tasks/-analyze
+#  체인으로 초안, speckit-taskstoissues 로 이슈화해 보드 연결. specs/ 가 스펙 원본(.specify/ 는 init 생성).
+spec:
+  tool: github_speckit            # 스펙 작성 도구. 비우면 게이트에서 에이전트가 결정.
+  specs_dir: specs/               # 스펙 원본 디렉토리(부트스트랩은 자리만, specify init은 게이트에서).
+  freeze_in_loop: true            # 루프 중 specs/ 동결(§4.1.4). false=in-flight 수정 허용(비권장).
+
+# ── 자율 엔진: /loop(자기 페이싱) + /goal(정지 차단 게이트) ★ 계승된 내장 엔진 ─
+engine:
+  # /loop — 자기 페이싱. interval 비우면 ScheduleWakeup 동적 페이싱(권장, 장기 루프).
+  #   값을 주면 CronCreate 고정 간격(예: "30m"). 이벤트(예: CI/E2E) 대기는 Monitor 무장.
+  loop:
+    pacing: dynamic               # dynamic(ScheduleWakeup) | interval(CronCreate)
+    interval: ""                  # pacing=interval 일 때만. 예: "20m"  (빈값=dynamic)
+    idle_wakeup_seconds: 1200     # dynamic 폴백 하트비트(외부 이벤트 없을 때 깨어날 간격)
+  # /goal — Stop 훅 게이트. 정지 시도마다 goal_check 가 DoD 충족 여부를 재검사.
+  #   미충족 → 정지 차단 + iteration/last_reason 누적 + 계속. 충족 → clear(정지 허용).
+  goal:
+    enabled: true
+    install_stop_hook: true       # 대상 레포 .claude/settings.json 에 Stop 훅 설치(=/goal 그대로)
+    condition: "DoD"              # "DoD"=definition-of-done.md 전 항목. 또는 자유 조건 문자열.
+    # ↓ §15 하드 가드 (무한루프 방지 — 의무. 과거 가드 없는 Stop훅 사고 재발 차단)
+    max_iterations: 200           # Stop 훅이 정지를 막을 수 있는 누적 횟수 상한
+    max_stall_iterations: 10      # 무진척 가드: goal_check 사유가 N회 연속 동일(=진척 0)이면 정지 허용+
+                                  #   에스컬레이션. DoD 천장(남은 카드 전부 보류/blocked)의 busywork·429
+                                  #   폭주 차단(references/failure-modes.md FM1). 0=비활성.
+    lock_file: ""                 # 동시 재진입 차단(비우면 스크립트가 uid별 기본 경로 사용)
+
+# ── §15 비용·시간·관측 상한 (초과 시 안전 정지 = budget-stop, exit 7) ───────────
+budgets:
+  max_loops: 0                    # 0=무제한(단 goal.max_iterations 가 상한). >0 이면 loop 수 캡.
+  max_wall_clock_hours: 24        # 전체 실행 벽시계 상한
+  max_tokens: 0                   # 0=세션 한도 따름. >0 이면 토큰 캡.
+  ci_minutes_per_day: 0           # 0=무제한. >0 이면 CI 분 서킷브레이커(REQ-CD-3).
+  dead_mans_switch_minutes: 30    # N분 무진전이면 알림(REQ-ST-3)
+  # ↓ N레포 모드 전용 (실측: xhigh 워커 3개 동시 = 주간 한도 77% — multi-repo §6)
+  weekly_usage_floor_percent: 90  # 주간 사용량 이 % 도달 시 신규 워커 기동 중단(진행분만 마감). 메타가 판단.
+  effort_by_task: {}              # 태스크 유형별 effort 티어. 예: {scaffold: medium, analysis: medium, design: high}
+
+# ── HITL(사람 확인) — 프로덕션 배포 게이트 ──────────────────────────────────
+hitl:
+  enabled: true
+  reviewers: [""]                 # GitHub username/team — 부트스트랩이 production env required reviewer 로 등록
+  gated_environment: production
+
+# ── 배포 타깃 (결정2: 로컬 E2E만 vs staging 클라우드) ──────────────────────
+deploy:
+  mode: local_e2e_only            # local_e2e_only | staging_cloud
+  staging: { enabled: false, url: "" }
+  production: { enabled: false, url: "" }
+
+# ── CI/CD 러너 — ★ self-hosted 원칙 (강제, ci-cd-hitl.md §0) ────────────────
+#  모든 Actions job은 self-hosted 러너. GitHub-hosted(ubuntu-latest 등) 금지.
+#  부트스트랩 probe 가 러너 온라인을 확인 — 없으면 루프 진행 금지+알림.
+ci:
+  runs_on: [self-hosted]          # 라벨 추가만 허용(예: [self-hosted, linux, x64]). hosted 교체 금지.
+
+# ── 스택 힌트 (비우면 매 loop ①에서 자동 감지 → 룰팩 적용) ──────────────────
+stack:
+  language: ""                    # python | typescript | go | ... (빈값=auto)
+  package_manager: ""             # uv | pnpm | ...
+  test_command: ""                # 예: "pytest -q"
+  lint_command: ""                # 예: "ruff check ."
+  build_command: ""               # 예: "docker build ."
+
+# ── 선택: GAN 품질 루프 (레인 ⑥ E2E에 Generator-Evaluator 반복 — gan-style-harness 차용) ─
+quality:
+  gan_evaluator: false            # true면 E2E 증거를 gan-evaluator(로컬 설치 에이전트)가 이슈 수용기준
+                                  #   루브릭으로 채점 → threshold 미달 시 레인이 재작업 후 재평가.
+  threshold: 8                    # 10점 만점 통과선
+  max_rounds: 3                   # ★ 하드가드 의무 — 품질 루프도 무한반복 금지(미달 3회면 Parked+승인큐)
+
+# ── 프로덕션 E2E (Tier 2) — merge 전 게이트 ★ ──────────────────────────────
+e2e:
+  runner: auto                    # auto | docker_compose | readme_command
+  ui_driver: browser_mcp          # browser_mcp(headless) | playwright_headless(폴백)
+  base_port: 14000                # 레인별 동적 포트 할당 시작점(충돌 방지)
+  health_timeout_seconds: 120
+  flake_retries: 3                # 일시 실패 백오프 재시도(이후에만 strike, REQ-E2E-6)
+  screenshot_max_mb: 2            # DLP — 스크린샷 압축/다운스케일 상한
+  secrets_file: ".env.e2e"        # 자격증명 주입원(평문 커밋 금지, teardown 시 폐기)
+
+# ── 병렬 레인 (worktree) ───────────────────────────────────────────────────
+worktree:
+  max_lanes: 2                    # 동시 레인 수(모듈 비충돌 이슈만 fan-out)
+  root: "../.ue-worktrees"        # 레인 worktree 루트
+
+# ── N레포 모드 (멀티 레포 / 1 공유 보드 / 세션 매니저 워커) ─────────────────────────
+#  references/multi-repo-orchestration.md 가 권위. repos: 에 2개 이상 주면 발동 —
+#  비우면(기본) 위의 repo: 스칼라 = 기존 단일 레포 동작(완전 하위호환).
+repos: []                         # 예 (메타 cc가 채움):
+#repos:
+#  - name: owner/service-a
+#    path: ~/work/service-a       # 워커 cwd [N레포 모드 필수]
+#    role: control-plane          # 자유 라벨
+#    default_stage: "2 컨트롤플레인 코어"
+#  - name: owner/service-b
+#    path: ~/work/service-b
+#    isolation: worktree          # 호스트가 디렉토리 점유 시 worktree 격리(점유는 자동 감지도 함)
+
+board:                            # ★ N레포 모드: 보드는 레포 위 '공유' 1개 — 레포마다 만들지 않는다
+  shared: false                   # true = 공유 보드(워커는 보드 생성 금지, 자기 레포 카드만 필터해 읽음)
+  title: ""                       # 공유 보드 제목(빈값="<첫 repo명> Platform"). board_bootstrap.sh 멱등 키.
+  stage_options: []               # Stage 단일선택 옵션 목록(빈값=Stage 필드 생략). 예: ["1 코어", "2 코어 API"]
+
+orchestration:                    # ★ N레포 워커 제어 (spawn 권한 = 메타 단독, 워커/훅 호출 금지)
+  mode: in_process_lanes          # in_process_lanes(기존 단일 레포) | session_mgr_sessions(N레포 tmux 워커)
+  spawn: tmux_new_session         # tmux_new_session(ul-접두 세션) | session_mgr (외부 세션 매니저 CLI — 선택.
+                                  #   세션명=basename → `ta` attach 호환 + bookmark 재부팅 영속.
+                                  #   ⚠️ ensure-hot은 CC 안 띄움 — CC 기동은 스크립트가)
+  channel: auto                   # auto(message broker 가용 시 durable 메시징, 아니면 send_keys) | broker | send_keys
+                                  #   broker = 예시 브로커 API HTTP POST /team/messages → 워커 inbox 영속(+send-keys 깨우기 보너스, 유실 없음)
+  tmux_socket: ""                 # ""=기본 서버 | "ultraloop"=격리 소켓(tmux -L) — 운영 tmux 서버 보호
+  max_concurrent_workers: 2       # 동시 워커 캡(사용량·tmux 부하 throttle)
+  stagger_seconds: 20             # 워커 동시 기동 금지 — 순차 기동 간격
+  permission_mode: bypassPermissions
+
+# ── 알림 & 승인 — Discord 게이트웨이 봇(아웃바운드 WS) ─────────────────────
+#  (결정3: 서버/채널/봇토큰/승인자/TTL)
+discord:
+  enabled: true
+  mode: gateway_bot               # gateway_bot(WS, 버튼 수신) | webhook_outbound(폴백, 알림만) | console
+  token_env: ULTRALOOP_DISCORD_BOT_TOKEN   # 봇 토큰을 읽을 env 이름(평문 금지)
+  notify_channel_id: ""           # 일상 알림(loop/push/CI/E2E/heartbeat)
+  approval_channel_id: ""         # 고위험 승인 버튼 [Y]/[N]
+  approver_user_ids: [""]         # 승인 권한 user id
+  approval_ttl_minutes: 120       # 무응답 TTL → 에스컬레이션/defer(REQ-APR-3)
+
+# ── 위험도(기본값; 룰은 references/notify-approval.md) ──────────────────────
+risk:
+  # 고위험(승인 큐+park)·저위험(알림+진행) 분류는 references 가 권위. 여기선 토글만.
+  treat_dependency_major_as_high: true
