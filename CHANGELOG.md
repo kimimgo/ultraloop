@@ -2,6 +2,13 @@
 
 All notable changes to ultraloop are documented here. Versioning is [SemVer](https://semver.org/).
 
+## 0.4.1
+
+### Fixed
+- `references/messaging.md`: forbidden-token list still named the old skill name (`build` → `loop`).
+- `assets/project-fields.json`: added `Start Date` (DATE) for parity with `gh-roadmap` `fields.json`
+  (the Roadmap view needs a Start+Target pair to draw duration bars on the fallback path).
+
 ## 0.4.0
 
 ### Changed
