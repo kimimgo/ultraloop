@@ -1,7 +1,7 @@
 {
   "name": "ultraloop",
-  "version": "0.2.0",
-  "description": "Autonomous software-engineering loop, split into two role-separated skills. ultraloop:pm plans (product strategy -> outcome roadmap -> red-team -> spec -> prioritize) and writes the GitHub Projects board; ultraloop:build reads that board and ships it via TDD + pre-merge production E2E, faithfully logging progress back to the board. The board is the single source of truth.",
+  "version": "0.4.0",
+  "description": "Autonomous software-engineering loop for Claude Code that ORCHESTRATES proven skills rather than reimplementing them — gh-roadmap owns the GitHub Projects board; strategy/spec/TDD/E2E skills do the work. Two role-separated skills: ultraloop:pm plans (product-strategy -> outcome-roadmap -> strategy-red-team -> speckit -> prioritization) and writes the board; ultraloop:loop reads that board and ships it via TDD + pre-merge production E2E, faithfully logging progress back to the board. The board is the single source of truth.",
   "author": {
     "name": "kimimgo"
   },
@@ -11,6 +11,8 @@
   "keywords": [
     "autonomous-agent",
     "self-paced-loop",
+    "orchestrator",
+    "gh-roadmap",
     "tdd",
     "github-projects",
     "roadmap",
@@ -20,6 +22,6 @@
   ],
   "skills": [
     "./skills/pm",
-    "./skills/build"
+    "./skills/loop"
   ]
 }

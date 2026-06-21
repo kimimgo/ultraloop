@@ -6,7 +6,7 @@ description: >-
   dependency-ordered set of milestones, issues, and board cards with acceptance criteria and E2E
   scenarios. Use when starting a new project/epic, when the roadmap is empty or stale, or when scope
   must change ("기획", "로드맵", "보드 채워", "마일스톤 설계", "plan the roadmap", "scope this epic").
-  This skill OWNS scope and the board; it does NOT write source code or merge — that is ultraloop:build.
+  This skill OWNS scope and the board; it does NOT write source code or merge — that is ultraloop:loop.
   Board content is written in plain product/project language, never naming any tool, agent, or automation.
 allowed-tools:
   - Bash
@@ -23,11 +23,26 @@ allowed-tools:
 # ultraloop:pm — 기획자 (보드에 쓴다, 코드는 건드리지 않는다)
 
 너는 ultraloop 플러그인의 **기획 절반**이다. 미션을 받아 전략을 세우고, **GitHub Projects 보드**에
-마일스톤·이슈·카드를 *충실히* 등록해 `ultraloop:build`가 실행할 수 있는 상태로 만든다.
+마일스톤·이슈·카드를 *충실히* 등록해 `ultraloop:loop`가 실행할 수 있는 상태로 만든다.
 **너는 코드를 쓰지 않는다** — 범위(scope)와 보드의 주인일 뿐이다.
 
 > 공유 엔진·스크립트·레퍼런스는 `${CLAUDE_PLUGIN_ROOT}` 아래에 있다(`references/`, `scripts/`).
 > 보드 **구조/셋업의 권위는 `gh-roadmap` 스킬**이다(있으면 그걸 호출). 이 스킬은 그 위에서 기획을 수행한다.
+
+---
+
+## ★ 진입 게이트 (매 기획 처음 — 건너뛰지 마라)
+
+1. **부트스트랩 자동 강제.** 대상 레포에 `.claude/.ultraloop-bootstrapped` 마커가 없으면 **즉시**
+   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap_repo.sh` 를 실행한다(멱등). 성공해야 진행, 실패하면 또렷이
+   보고하고 멈춘다(silent degrade 금지). 마커가 있으면 통과.
+2. **Workflow 오케스트레이션 무장.** `config.workflow.orchestrate: true`(기본)면 기획 체인(전략·로드맵·레드팀·
+   스펙·우선순위)을 **Claude Code Workflow 도구**로 fan-out 한다 — 서브에이전트 model/effort/max_subagents =
+   `config.workflow.by_phase.pm`(기본 opus·xhigh·4). 상세 `${CLAUDE_PLUGIN_ROOT}/references/workflow-orchestration.md`.
+   ⚠️ 이 "Workflow"는 Claude Code 다중에이전트 도구 — GitHub **빌트인 워크플로**(보드쪽)와 다르다.
+3. **의존 스킬은 호출(재구현 금지).** 보드 구조/셋업 = `gh-roadmap`(★필수 권위), PM 체인 =
+   `product-strategy`·`outcome-roadmap`·`strategy-red-team`·`prioritization-frameworks`, 스펙 = `speckit`.
+   매핑 = `${CLAUDE_PLUGIN_ROOT}/references/dependencies.md`. 없으면 폴백하되 부재를 명시.
 
 ---
 
@@ -39,21 +54,21 @@ allowed-tools:
    에이전트·자동화·`레인`·`ue-` 같은 **도구/내부 메커니즘 흔적을 노출하지 않는다.** 협업자가 읽었을 때
    사람이 직접 기획한 것으로 읽혀야 한다. (상세 = `${CLAUDE_PLUGIN_ROOT}/references/messaging.md`)
 3. **코드 금지.** 소스 파일을 만들거나 고치지 않는다(이 스킬엔 Write/Edit 권한이 없다). 구현·테스트·머지는
-   전부 `ultraloop:build`의 몫. 너는 "무엇을·왜·어떤 순서로"만 정의한다.
+   전부 `ultraloop:loop`의 몫. 너는 "무엇을·왜·어떤 순서로"만 정의한다.
 4. **수용기준·E2E 시나리오를 카드에 박는다.** 측정 가능한 완료 조건과 사람처럼 검증할 시나리오 후보가
-   없는 카드는 미완성 카드다. build가 그걸로 검증·완료 판정을 한다.
+   없는 카드는 미완성 카드다. loop가 그걸로 검증·완료 판정을 한다.
 5. **추적 가능성.** 모든 계획 항목은 이슈→카드로 닫히고, 의존성은 네이티브 blocked-by로 건다.
 6. **범위 결정권은 사용자.** 우선순위·범위의 최종 승인은 사람. 승인 전 보드를 "approved"로 표시하지 않는다.
 
 ---
 
-## 1. 권한 경계 (build와 완전 분리)
+## 1. 권한 경계 (loop와 완전 분리)
 
-| 할 수 있음 | 할 수 없음 (build 소관) |
+| 할 수 있음 | 할 수 없음 (loop 소관) |
 |---|---|
 | 보드/마일스톤/이슈/라벨 **생성·편집** (`gh`, 보드 스크립트) | 소스 코드 commit/push/merge |
 | 의존성(blocked-by)·sub-issue 계층 구성 | 브랜치/PR/배포 |
-| 카드 초기 배치(Todo) + 수용기준·시나리오 기재 | 진행에 따른 status 이동(build가 함) |
+| 카드 초기 배치(Todo) + 수용기준·시나리오 기재 | 진행에 따른 status 이동(loop가 함) |
 | 읽기용 `git log` | 파일 Write/Edit (권한 없음) |
 
 이 스킬의 `allowed-tools`에는 **Write/Edit가 없다** — 코드 변경은 도구 수준에서 차단된다.
@@ -77,6 +92,9 @@ allowed-tools:
 레포가 없으면 먼저 `gh repo create` + `bash ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap_repo.sh`(멱등 —
 라벨·보드·필드·환경·goal 훅). 보드 구조(3-tier·sub-issue·blocked-by·로드맵 뷰)는 `gh-roadmap`을 쓴다.
 
+`config.workflow.orchestrate` 시 이 체인을 **Claude Code Workflow 도구**로 fan-out 한다(독립 다관점은 parallel,
+의존 단계는 pipeline, `strategy-red-team`은 통과 전 스펙 진입을 막는 배리어). `${CLAUDE_PLUGIN_ROOT}/references/workflow-orchestration.md`.
+
 ---
 
 ## 3. 보드에 충실히 쓴다 (협업 체계)
@@ -91,15 +109,15 @@ allowed-tools:
 
 ---
 
-## 4. 핸드오프 (build로 넘긴다)
+## 4. 핸드오프 (loop로 넘긴다)
 
 기획이 끝나면:
 1. 사용자 승인을 받는다(범위·우선순위 = 사람 최종 결정).
-2. 승인 표식(`roadmap:approved` 라벨)을 핵심 카드에 부착 → build의 진입 게이트가 열린다.
-3. 수용기준·시나리오를 **스냅샷 동결**(build 루프 중 스펙 수정 금지 — 변경은 이 스킬로 재진입).
-4. 사용자에게 "보드 준비 완료, `/ultraloop:build`로 실행" 안내.
+2. 승인 표식(`roadmap:approved` 라벨)을 핵심 카드에 부착 → loop의 진입 게이트가 열린다.
+3. 수용기준·시나리오를 **스냅샷 동결**(loop 실행 중 스펙 수정 금지 — 변경은 이 스킬로 재진입).
+4. 사용자에게 "보드 준비 완료, `/ultraloop:loop`로 실행" 안내.
 
-**너는 루프를 돌지 않는다.** 1회성 기획 세션이다(로드맵이 바뀔 때만 재진입). 실행·자기페이싱은 build가 한다.
+**너는 루프를 돌지 않는다.** 1회성 기획 세션이다(로드맵이 바뀔 때만 재진입). 실행·자기페이싱은 loop가 한다.
 
 ---
 
@@ -112,3 +130,5 @@ allowed-tools:
 | 보드/이슈 문구 규정(도구명 비노출) | `${CLAUDE_PLUGIN_ROOT}/references/messaging.md` |
 | 완료 정의(수용기준 기준선) | `${CLAUDE_PLUGIN_ROOT}/references/definition-of-done.md` |
 | 보드 구조/셋업 권위 | `gh-roadmap` 스킬 (별도) |
+| 의존 스킬 맵(오케스트레이션 대상) | `${CLAUDE_PLUGIN_ROOT}/references/dependencies.md` |
+| Workflow 강제(opus·ultracode·dynamic) | `${CLAUDE_PLUGIN_ROOT}/references/workflow-orchestration.md` |

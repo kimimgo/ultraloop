@@ -1,5 +1,19 @@
 # 브랜치 & worktree — 병렬 레인 + GC 강화 (worktree-strategy)
 
+## 0. baseRef — 레인 분기 기준 (bootstrap 에서 고정)
+병렬 레인은 `isolation:"worktree"` 로 각자 별도 worktree(별도 디렉토리 + 별도 브랜치)에서 돈다.
+이 격리가 "어느 지점에서 새 브랜치를 따는가"를 정하는 게 Claude Code 네이티브 `worktree.baseRef`
+설정이며, `bootstrap_repo.sh`(§6.5)가 대상 레포 `.claude/settings.json` 에 기록한다(`config.worktree.base_ref`).
+
+| 값 | 분기 기준 | 효과 |
+|---|---|---|
+| **`fresh`** (기본·권장) | `origin/<default>` | 모든 레인이 깨끗한 원격 기준에서 출발 → 재현가능. 로컬 미푸시 커밋은 레인에 **안 샌다** |
+| `head` | 로컬 `HEAD` | 진행 중인 미푸시 커밋 위에서 레인을 빌드해야 할 때만 |
+
+- 적용 범위는 3곳 동일: `claude --worktree`, `EnterWorktree` 도구, **agent/Workflow `isolation:"worktree"`**(=병렬 레인).
+- ultraloop 권장 = **`fresh`**: 레인끼리 서로의 반쯤 한 작업을 상속하지 않아 병렬 머지 충돌·비결정성을 줄인다.
+  미푸시 로컬 베이스 위에서 작업을 시켜야 하는 예외 상황에서만 `head`.
+
 ## 1. 원칙
 - trunk-based + 단명 브랜치(이슈 1:1), squash merge 후 브랜치 삭제, `main` 보호.
 - 병렬 = 레인별 **git worktree** 분리(`config.worktree.root`, 기본 `../.ue-worktrees/<issue#>-<slug>`),

@@ -24,6 +24,18 @@ DTOKEN_ENV="$(cfg_get discord.token_env ULTRALOOP_DISCORD_BOT_TOKEN)"
 [ -n "${!DTOKEN_ENV:-}" ] && echo "  ✓ discord bot token($DTOKEN_ENV)" || echo "  · discord bot token 없음  (승인 게이트웨이 폴백=webhook/console, notify-approval.md)"
 echo "  · 브라우저 MCP 가용성은 첫 loop ①에서 에이전트가 probe해 PROGRESS 뷰에 기록"
 
+# ── 0.1 의존 스킬 probe (references/dependencies.md) — gh-roadmap=보드 권위(필수), 나머지=폴백 가능 ──
+echo "[skills]"
+GHR_DIR=""
+for d in "$HOME/.claude/skills/gh-roadmap" "$HOME"/.claude/plugins/*/skills/gh-roadmap; do
+  [ -f "$d/SKILL.md" ] && { GHR_DIR="$d"; break; }
+done
+[ -n "$GHR_DIR" ] && echo "  ✓ gh-roadmap (보드 구조/셋업 권위): $GHR_DIR" \
+  || echo "  ✗ gh-roadmap 없음 — 보드 뷰·로드맵·빌트인 워크플로 자동화 불가(★필수 의존). 설치 권장(references/dependencies.md)."
+for s in product-strategy outcome-roadmap strategy-red-team prioritization-frameworks tdd-workflow; do
+  [ -d "$HOME/.claude/skills/$s" ] && echo "  ✓ $s" || echo "  · $s 없음 (폴백: ultraloop 직접 수행)"
+done
+
 [ -n "$REPO" ] || { echo "✗ repo 미해석 — config.repo 또는 슬래시 인자(/ultraloop owner/name)"; exit 1; }
 command -v gh >/dev/null 2>&1 || { echo "✗ gh 필요"; exit 1; }
 
@@ -53,17 +65,30 @@ else
   echo "  · python3 없음 — 라벨 수동 생성 필요(assets/labels.json)"
 fi
 
-# ── 2. 보드(Projects v2) 멱등 — 권한 있을 때만 ──────────────────────────────
-echo "[board]"
+# ── 2. 보드(Projects v2) — gh-roadmap 위임(보드 구조/셋업 권위) · 골든 템플릿 복제 ──
+#  ⚠️ 뷰·Roadmap 레이아웃·빌트인 워크플로는 API 생성 불가(검증) → copyProjectV2(골든 템플릿)가 유일 자동화.
+echo "[board → gh-roadmap]"
 PNODE="$(cfg_get roadmap.project_node_id "")"
+TEMPLATE="$(cfg_get roadmap.template_node_id "")"
 if [ -n "$PNODE" ]; then
   echo "  ✓ project_node_id 이미 기록됨(멱등 통과): $PNODE"
+elif [ -n "$GHR_DIR" ]; then
+  echo "  · 보드 구조/셋업 = gh-roadmap 권위(references/dependencies.md). 다음으로 셋업:"
+  echo "    1) cp $GHR_DIR/config.example.yaml ./gh-roadmap.config.yaml"
+  echo "       → board.owner=${REPO%%/*} · board.title 설정 · repos:[{name:$REPO}]"
+  if [ -n "$TEMPLATE" ]; then
+    echo "       → board.template_node_id=$TEMPLATE  (★ 골든 템플릿 → copyProjectV2 로 3뷰·로드맵·빌트인워크플로 복제)"
+  else
+    echo "       ⚠️ template_node_id 비움 → fresh 보드(로드맵 뷰·빌트인 워크플로 없음)."
+    echo "          golden-template-setup.md 로 골든 템플릿 1회 구성 후 그 id 를 roadmap.template_node_id 에 기록 권장."
+  fi
+  echo "    2) bash $GHR_DIR/scripts/roadmap_bootstrap.sh   # 보드 복제/생성 + N레포 link + 필드(Horizon·Target Date)"
+  echo "    3) bash $GHR_DIR/scripts/roadmap_view.sh check  # 뷰(ROADMAP_LAYOUT)·빌트인워크플로(enabled)·필드 검증"
+  echo "    4) 생성된 project_node_id/number 를 ultraloop.config.yaml(roadmap.*)에 기록(멱등 키)"
 else
-  echo "  · 보드 생성은 project-scope 토큰 필요. 에이전트가 roadmap-model.md §4(query-then-create)대로:"
-  echo "    1) gh project list --owner <OWNER> 로 제목 조회 → 없으면 gh project create"
-  echo "    2) assets/project-fields.json 의 필드/옵션 멱등 생성"
-  echo "    3) 생성된 node-id/number 를 ultraloop.config.yaml(roadmap.project_node_id/number)에 기록"
-  echo "    실패 시 폴백: Milestone+라벨(roadmap-model §6) + PROGRESS 뷰에 명시"
+  echo "  ✗ gh-roadmap 없음(★필수 의존) — 폴백: roadmap-model.md §4 query-then-create 로 보드/필드 직접 생성"
+  echo "    (assets/project-fields.json: Status·Priority·Horizon·Target Date·E2E-Evidence 포함)."
+  echo "    ⚠️ 로드맵 레이아웃 뷰·빌트인 워크플로는 골든 템플릿 필요(API 생성 불가) — gh-roadmap 설치 권장."
 fi
 
 # ── 3. 템플릿/워크플로 복사 ─────────────────────────────────────────────────
@@ -72,6 +97,10 @@ mkdir -p .github/workflows .github/ISSUE_TEMPLATE
 cp -n "$SKILL_DIR/assets/workflows/"*.yml .github/workflows/ 2>/dev/null || true
 cp -n "$SKILL_DIR/assets/issue_templates/"*.md .github/ISSUE_TEMPLATE/ 2>/dev/null || true
 cp -n "$SKILL_DIR/assets/pr_template.md" .github/pull_request_template.md 2>/dev/null || true
+# auto-add 워크플로 — 골든 템플릿이 유일하게 복제 못 하는 빌트인 워크플로(auto-add) 갭을 gh-roadmap 이 메운다.
+[ -n "${GHR_DIR:-}" ] && [ -f "$GHR_DIR/assets/add-to-project.yml" ] && \
+  cp -n "$GHR_DIR/assets/add-to-project.yml" .github/workflows/add-to-project.yml 2>/dev/null && \
+  echo "  · auto-add.yml 복사(PROJECT_URL·ADD_TO_PROJECT_PAT secret 치환 필요 — golden-template-setup §C)" || true
 [ -f PROGRESS.md ] || cp "$SKILL_DIR/assets/PROGRESS.template.md" PROGRESS.md 2>/dev/null || true
 [ -f CLAUDE.md ]   || cp "$SKILL_DIR/assets/CLAUDE.template.md" CLAUDE.md 2>/dev/null || true
 # specs/ 자리(Spec Kit 스펙 원본, §4.1.3). specify init 은 게이트에서 에이전트가 — 부트스트랩은 자리만.
@@ -138,6 +167,54 @@ PY
 else
   echo "  · goal.install_stop_hook=false — 게이트 미설치(프롬프트 루프만)"
 fi
+
+# ── 6.5 ★ worktree 최적화(.claude/settings.json worktree.baseRef) ───────────
+# 병렬 레인은 isolation:"worktree" 로 격리 실행된다. 레인이 '어디서 분기'하느냐를 고정해
+# 재현성을 확보하고 미푸시 로컬 작업이 레인에 새지 않게 한다(worktree-strategy.md §0).
+echo "[worktree baseRef]"
+BASEREF="$(cfg_get worktree.base_ref fresh)"
+case "$BASEREF" in fresh|head) ;; *) echo "  · 알 수 없는 base_ref='$BASEREF' → fresh 로 보정"; BASEREF=fresh ;; esac
+mkdir -p .claude
+if command -v python3 >/dev/null 2>&1; then
+  python3 - "$BASEREF" <<'PY' 2>/dev/null && echo "  ✓ worktree.baseRef=$BASEREF 기록(.claude/settings.json)" || echo "  · settings.json 병합 실패 — 수동: \"worktree\":{\"baseRef\":\"$BASEREF\"}"
+import json,sys,os
+ref=sys.argv[1]; p=".claude/settings.json"
+d=json.load(open(p)) if os.path.exists(p) and os.path.getsize(p) else {}
+d.setdefault("worktree",{})["baseRef"]=ref
+json.dump(d,open(p,"w"),ensure_ascii=False,indent=2)
+PY
+else
+  echo "  · python3 없음 — .claude/settings.json 에 \"worktree\":{\"baseRef\":\"$BASEREF\"} 수동 추가"
+fi
+echo "  · fresh=origin/<default>에서 레인 분기(권장) | head=로컬 미푸시 커밋 위 (worktree-strategy.md §0)"
+
+# ── 6.6 ★ Workflow 오케스트레이션 설정(.claude/settings.json, references/workflow-orchestration.md) ──
+#  config.workflow 의 model/effort/max_subagents 를 기록 = Workflow 단계 서브에이전트 기본값.
+#  ⚠️ 세션 모델 자체는 스킬이 강제 못 함(사용자 --model) — 이건 '권장 힌트'. by_phase 오버라이드는 SKILL 이 직접 읽음.
+echo "[workflow orchestration]"
+WF_MODEL="$(cfg_get workflow.agents.model opus)"
+WF_EFFORT="$(cfg_get workflow.agents.effort xhigh)"
+WF_MAX="$(cfg_get workflow.agents.max_subagents 8)"
+mkdir -p .claude
+if command -v python3 >/dev/null 2>&1; then
+  python3 - "$WF_MODEL" "$WF_EFFORT" "$WF_MAX" <<'PY' 2>/dev/null && echo "  ✓ workflow 기록: model=$WF_MODEL effort=$WF_EFFORT max_subagents=$WF_MAX" || echo "  · settings.json 병합 실패 — 수동 기록"
+import json,sys,os
+model,effort,mx=sys.argv[1],sys.argv[2],int(sys.argv[3])
+p=".claude/settings.json"
+d=json.load(open(p)) if os.path.exists(p) and os.path.getsize(p) else {}
+d.setdefault("ultraloop",{})["workflow"]={"model":model,"effort":effort,"max_subagents":mx}
+json.dump(d,open(p,"w"),ensure_ascii=False,indent=2)
+PY
+else
+  echo "  · python3 없음 — .claude/settings.json 에 ultraloop.workflow 수동 기록"
+fi
+
+# ── 6.7 ★ 부트스트랩 완료 마커 (자동 강제 진입용, SKILL §0) ───────────────────
+#  pm/loop 진입 시 이 마커가 없으면 자동으로 bootstrap_repo.sh 를 실행한다(멱등).
+echo "[bootstrap marker]"
+VER="$(python3 -c 'import json;print(json.load(open("'"$SKILL_DIR"'/.claude-plugin/plugin.json"))["version"])' 2>/dev/null || echo '?')"
+printf 'ultraloop bootstrap ok\nversion=%s\n' "$VER" > .claude/.ultraloop-bootstrapped 2>/dev/null \
+  && echo "  ✓ .claude/.ultraloop-bootstrapped (version=$VER)" || echo "  · 마커 기록 실패"
 
 # ── 7. 초기 커밋 ────────────────────────────────────────────────────────────
 echo "[seed commit]"

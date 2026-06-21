@@ -1,0 +1,9 @@
+# Serena LSP indexer output (local only)
+.serena/
+
+# per-target-repo config (lives in the target repo, not here)
+ultraloop.config.yaml
+gh-roadmap.config.yaml
+
+# build lane worktrees
+.ue-worktrees/

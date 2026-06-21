@@ -30,6 +30,17 @@
       "name": "E2E-Evidence",
       "dataType": "TEXT",
       "note": "E2E 증거 경로/URL. 스크린샷 원본 임베드 금지(<2MB 링크/썸네일)"
+    },
+    {
+      "name": "Horizon",
+      "dataType": "SINGLE_SELECT",
+      "options": ["장기", "중기", "단기"],
+      "note": "3-tier 로드맵 호라이즌(Initiative/Epic/Task). Roadmap 뷰 그룹/필터용. gh-roadmap assets/fields.json 과 정합. 골든 템플릿 복제 시 이미 존재(멱등)."
+    },
+    {
+      "name": "Target Date",
+      "dataType": "DATE",
+      "note": "Roadmap 레이아웃 뷰의 막대 끝(목표 출시일). ★ 이 필드가 없으면 로드맵 뷰가 일정 막대를 못 그린다 — 사용자 요구 '로드맵에 일정 큰 그림'의 데이터 근거. 골든 템플릿 복제 시 이미 존재(멱등)."
     }
   ]
 }

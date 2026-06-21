@@ -1,17 +1,19 @@
 ---
-name: build
+name: loop
 description: >-
-  Executes a GitHub Projects board faithfully — the build half of the ultraloop loop. Reads the board as
-  the single source of truth, then ships each Ready card via TDD (Red->Green->Refactor) and pre-merge
-  production E2E, self-pacing with /loop and gating stops with /goal until every card is Done with
-  evidence. Logs progress, decisions, blockers, and completion back to the board card (or its linked
+  Executes a GitHub Projects board faithfully — the execution (loop) half of the ultraloop loop. Reads
+  the board as the single source of truth, then ships each Ready card via TDD (Red->Green->Refactor) and
+  pre-merge production E2E, self-pacing with /loop and gating stops with /goal until every card is Done
+  with evidence. Logs progress, decisions, blockers, and completion back to the board card (or its linked
   issue) as it goes. Use when a board is populated and approved and you want autonomous implementation
-  ("실행", "보드 수행", "구현 루프 돌려", "build the board", "ship the roadmap", "ultraloop:build").
+  ("실행", "보드 수행", "구현 루프 돌려", "build the board", "ship the roadmap", "ultraloop:loop").
   This skill OWNS code and execution; it does NOT define roadmap, milestones, or scope — that is
-  ultraloop:pm. It never names any tool, agent, or automation in board/issue/PR/commit text.
+  ultraloop:pm. It ORCHESTRATES proven skills (gh-roadmap for board I/O, tdd-workflow, gstack) via the
+  Claude Code Workflow tool rather than reimplementing them. It never names any tool, agent, or
+  automation in board/issue/PR/commit text.
 ---
 
-# ultraloop:build — 실행자 (보드를 읽고 충실히 수행한다, 로드맵은 정의하지 않는다)
+# ultraloop:loop — 실행자 (보드를 읽고 충실히 수행한다, 로드맵은 정의하지 않는다)
 
 너는 ultraloop 플러그인의 **실행 절반**이다. `ultraloop:pm`이 채운 **보드(GitHub Projects v2 = SoT)**를
 읽어, 매 카드를 **TDD → merge 전 프로덕션 E2E → merge**로 완료하고, **진행상황을 보드에 충실히 기록**한다.
@@ -19,6 +21,20 @@ description: >-
 
 > 공유 엔진·스크립트·레퍼런스는 `${CLAUDE_PLUGIN_ROOT}` 아래(`references/`, `scripts/`, `assets/`).
 > 두 엔진의 정확한 재현은 `${CLAUDE_PLUGIN_ROOT}/references/engine-loop-and-goal.md` 를 먼저 읽어라.
+
+---
+
+## ★ 진입 게이트 (매 실행 처음 — 건너뛰지 마라)
+
+1. **부트스트랩 자동 강제.** 대상 레포에 `.claude/.ultraloop-bootstrapped` 마커가 없으면 **즉시**
+   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap_repo.sh` 를 실행한다(멱등). 성공해야 진행, 실패하면 또렷이
+   보고하고 멈춘다(silent degrade 금지). 마커가 있으면 통과.
+2. **Workflow 오케스트레이션 무장.** `config.workflow.orchestrate: true`(기본)면 레인 fan-out 을 **Claude Code
+   Workflow 도구**로 돌린다 — 서브에이전트 model/effort/max_subagents = `config.workflow.by_phase.loop`
+   (기본 opus·xhigh·8), 각 레인 `isolation:"worktree"`. 상세 `${CLAUDE_PLUGIN_ROOT}/references/workflow-orchestration.md`.
+   ⚠️ 이 "Workflow"는 Claude Code 다중에이전트 도구 — GitHub **빌트인 워크플로**(보드쪽)와 다르다.
+3. **의존 스킬은 호출(재구현 금지).** 보드 I/O = `gh-roadmap`, Tier1 TDD = `tdd-workflow`, 검증·리뷰·배포 = `gstack-*`.
+   매핑 = `${CLAUDE_PLUGIN_ROOT}/references/dependencies.md`. 없으면 폴백하되 부재를 PROGRESS 에 명시.
 
 ---
 
@@ -36,7 +52,7 @@ description: >-
 
 ---
 
-## 1. 절대 원칙 (IRON RULES — build)
+## 1. 절대 원칙 (IRON RULES — loop)
 
 1. **완료 판정 금지선** — `${CLAUDE_PLUGIN_ROOT}/references/definition-of-done.md` 전 항목이 *증거와 함께* ✅
    + 프로덕션 HITL 승인 전에는 "완료/배포됨"이라 말하지 않는다.
@@ -64,7 +80,7 @@ description: >-
 | 진행/막힘/완료 **코멘트** 기재 | 보드 구조 변경(`gh project create/field-create`) |
 | 발견한 버그/엣지 **새 이슈** 등록 | 새 기획 카드 증식(스코프 확장) |
 
-> build는 자율 루프라 도구를 폭넓게 쓴다(`ScheduleWakeup`/`Monitor`/`Task`/Bash/파일도구 등 — 그래서
+> loop는 자율 루프라 도구를 폭넓게 쓴다(`ScheduleWakeup`/`Monitor`/`Task`/`Workflow`/Bash/파일도구 등 — 그래서
 > allowed-tools를 좁히지 않는다). 로드맵-정의 금지는 위 규칙 + (강제하려면) `gh project create|field-create`를
 > 막는 PreToolUse 훅으로 지킨다. **권한 분리의 하드 보장은 pm 쪽**(pm엔 Write/Edit가 없어 코드를 못 만진다).
 
@@ -90,7 +106,10 @@ description: >-
 
 1. **계획 점검** — 보드→`PROGRESS.md` 뷰 재생성(`regen_progress.sh`) · 게이트(`roadmap_sync.sh`) · 환경점검
    (`references/env-check.md`) · 비용/heartbeat(`cost_guard.sh`/`heartbeat.sh`) · 승인 큐 drain.
-2. **레인 편성** — 다음 Ready 카드 N개(의존성 위배 X, 모듈 디렉토리 비충돌) · stale worktree GC · 레인별 worktree.
+2. **레인 편성(Workflow fan-out)** — 다음 Ready 카드 N개(의존성 위배 X, 모듈 디렉토리 비충돌)를 **Claude Code
+   Workflow 도구로 병렬 fan-out**(각 레인 `isolation:"worktree"`, model/effort=`config.workflow.by_phase.loop`) ·
+   stale worktree GC. 동시 레인 ≤ `config.workflow.agents.max_subagents` 이자 ≤ `config.worktree.max_lanes`
+   (`references/workflow-orchestration.md`).
 3~6. **레인 병렬** — TDD + 원자커밋 → push → 계층 CI(녹색) → **★merge 전 E2E**(실배포 레인격리 포트 → 시나리오 → 캡쳐 증거).
 7. **join + merge** — E2E 통과 레인만 squash merge(`ship_pr.sh`). main 항상 배포가능.
 8. **보드 업데이트(SoT)** — 카드 Done + E2E 증거 경로 + 완료 코멘트(§3). 버그/엣지 → 새 이슈.
@@ -124,3 +143,5 @@ description: >-
 | 계층 CI·HITL 배포 | `${CLAUDE_PLUGIN_ROOT}/references/ci-cd-hitl.md` |
 | 완료 정의(종료 조건) | `${CLAUDE_PLUGIN_ROOT}/references/definition-of-done.md` |
 | N레포 메타 오케스트레이션 | `${CLAUDE_PLUGIN_ROOT}/references/multi-repo-orchestration.md` |
+| 의존 스킬 맵(오케스트레이션 대상) | `${CLAUDE_PLUGIN_ROOT}/references/dependencies.md` |
+| Workflow 강제(opus·ultracode·dynamic) | `${CLAUDE_PLUGIN_ROOT}/references/workflow-orchestration.md` |

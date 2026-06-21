@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # board_bootstrap.sh — N레포 공유 보드 멱등 부트스트랩 (multi-repo-orchestration.md §2·§3)
+#   ⚠️ 보드 구조/셋업 권위 = gh-roadmap 스킬(references/dependencies.md). gh-roadmap 이 있으면
+#      roadmap_bootstrap.sh(골든 템플릿 copyProjectV2 = 3뷰·로드맵·빌트인워크플로 복제)를 우선 쓴다.
+#      이 스크립트는 gh-roadmap 부재 시 폴백(fresh 보드 — 로드맵 뷰·빌트인 워크플로 없음).
 #   1 보드 query-then-create → N레포 link → Stage 필드(옵션) 보장. 전부 gh api graphql
 #   (graphql = gh 버전무관 멱등 경로. 신버전 gh면 `gh project`도 가능 — multi-repo §3). 토큰 project 스코프 필수.
 # usage: board_bootstrap.sh [--dry-run]

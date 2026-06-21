@@ -32,6 +32,11 @@ roadmap:
                                   #   Ready 옵션이 없다 → "Todo"로 바꿔야 워커가 일을 집는다(실제 멀티레포 토폴로지에서 검증).
   approved: false                 # milestones 폴백 경로의 승인 플래그(provider=github_projects_v2면
                                   #   라벨 roadmap:approved 로 판정하므로 이 값 무시).
+  # ★ 골든 템플릿 — 뷰·Roadmap 레이아웃·빌트인 워크플로는 API 생성 불가(검증) → copyProjectV2 복제만 가능.
+  #   보드 구조/셋업 권위 = gh-roadmap 스킬. 부트스트랩이 이 id 를 gh-roadmap roadmap_bootstrap.sh 로 복제한다.
+  template_node_id: "PVT_kwHOAUMds84BbPYp"   # 예시 = #12 "imdental-ai roadmap"(3역할뷰 Roadmap—PM·일정/Dev Board/
+                                  #   Build Monitor + ROADMAP_LAYOUT + Horizon/Target Date/Start Date 보유). ⚠️ 본인 골든
+                                  #   템플릿 보드 id 로 교체. 비우면 fresh 보드(로드맵 뷰·빌트인 워크플로 없음 — golden-template-setup.md).
 
 # ── 스펙 권위 = GitHub Spec Kit (기획 게이트 산출물, SKILL §4.1.3) ───────────
 #  게이트에서 `specify init . --integration claude --script sh` (v0.10.x). ⚠️ Claude 통합은 슬래시 아닌
@@ -121,6 +126,25 @@ e2e:
 worktree:
   max_lanes: 2                    # 동시 레인 수(모듈 비충돌 이슈만 fan-out)
   root: "../.ue-worktrees"        # 레인 worktree 루트
+  base_ref: "fresh"               # 격리 레인 분기 기준 — fresh=origin/<default>(권장: 재현가능·미푸시작업 비유입) | head=로컬 HEAD(미푸시 커밋 위 빌드)
+                                  #   bootstrap_repo.sh 가 이 값을 대상 레포 .claude/settings.json 의 worktree.baseRef 로 기록
+
+# ── ★ Workflow 오케스트레이션 (Claude Code Workflow 도구 — opus·ultracode·dynamic) ──────────
+#  ⚠️ 여기 "워크플로"는 **Claude Code Workflow 도구(다중에이전트 오케스트레이션)**다. GitHub Projects
+#  **빌트인 워크플로**(닫힘→Done 등, roadmap 쪽 = gh-roadmap)와 전혀 다르다 — 혼동 금지.
+#  스킬은 세션 모델을 직접 못 바꾸므로(사용자 --model) 강제는 Workflow/Agent 호출 시 서브에이전트
+#  model/effort/agentType 지정 + 강한 지시로 한다. 상세 = references/workflow-orchestration.md.
+workflow:
+  orchestrate: true               # 핵심 단계(pm 기획체인 / loop 레인)를 Workflow 도구로 오케스트레이션(강제 지시)
+  mode: ultracode                 # ultracode(단계별 다중에이전트 fan-out) | solo(단일 에이전트, 소규모)
+  pacing: dynamic                 # dynamic-workflow(동적 페이싱) — engine.loop.pacing 과 정합
+  agents:                         # ★ 워크플로 단계 서브에이전트 기본값 (모델/effort/최대 서브에이전트 — 부트스트랩이 기록)
+    model: opus                   #   서브에이전트 모델(opus 권장). 비우면 세션 모델 상속.
+    effort: xhigh                 #   서브에이전트 effort: low | medium | high | xhigh | max
+    max_subagents: 8              #   ★ 최대 동시 생성 서브에이전트 수(동시성 캡). 실동시성=min(이값, 코어-2).
+  by_phase:                       #   단계별 오버라이드(비우면 agents 기본값 상속)
+    pm:   { model: opus, effort: xhigh, max_subagents: 4 }   # 기획 체인(전략·로드맵·레드팀·스펙·우선순위) fan-out
+    loop: { model: opus, effort: xhigh, max_subagents: 8 }   # 레인 fan-out (각 레인 = isolation:worktree)
 
 # ── N레포 모드 (멀티 레포 / 1 공유 보드 / 세션 매니저 워커) ─────────────────────────
 #  references/multi-repo-orchestration.md 가 권위. repos: 에 2개 이상 주면 발동 —

@@ -4,19 +4,21 @@
     "name": "kimimgo"
   },
   "metadata": {
-    "description": "Autonomous software-engineering loop — role-separated PM planning + faithful board execution.",
-    "version": "0.2.0",
+    "description": "Autonomous software-engineering loop — role-separated PM planning + faithful board execution, orchestrating gh-roadmap and proven skills.",
+    "version": "0.4.0",
     "pluginRoot": "."
   },
   "plugins": [
     {
       "name": "ultraloop",
       "source": "./",
-      "description": "Two skills sharing one engine: ultraloop:pm (plan -> write the board) and ultraloop:build (read the board -> TDD + pre-merge E2E -> ship, logging progress to the board). Board is the single source of truth; roles and permissions are fully separated.",
-      "version": "0.2.0",
+      "description": "Two skills sharing one engine: ultraloop:pm (plan -> write the board) and ultraloop:loop (read the board -> TDD + pre-merge E2E -> ship, logging progress to the board). Orchestrates gh-roadmap (board structure/setup authority) + proven planning/spec/TDD/E2E skills instead of reimplementing them. Board is the single source of truth; roles and permissions are fully separated.",
+      "version": "0.4.0",
       "keywords": [
         "autonomous-agent",
         "self-paced-loop",
+        "orchestrator",
+        "gh-roadmap",
         "tdd",
         "github-projects",
         "roadmap",
