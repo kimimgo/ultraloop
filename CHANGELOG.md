@@ -2,6 +2,23 @@
 
 All notable changes to ultraloop are documented here. Versioning is [SemVer](https://semver.org/).
 
+## 0.5.0
+
+### Added
+- **New skill `ultraloop:design`** — the design half of the loop, run BEFORE pm. Orchestrates Google Stitch
+  (foundation) + the harness's verified design tools (taste-design, artifact-design, impeccable, taste-skill,
+  frontend-design, stitch-{design,build,utilities}, gstack-design-*, tri-model-review, gemini-image-eval,
+  playwright-cli, artifacts traefik publish) into ONE verified loop:
+  scope → cold multi-model critique (codex+gemini, no leading, N angles incl. domain lens) → design-system
+  foundation → Stitch generate → integrate (token-normalize + cross-nav + real data canvases) →
+  render-verify → re-score → iterate to a numeric target → hand an approved DESIGN.md to pm.
+- References: `design-loop-protocol.md`, `design-tools-map.md`, `stitch-foundation.md`, `community-refs.md`.
+- Assets: `assets/design/{DESIGN.md,SITE.md,next-prompt.md}.template`, `integrate.py`, `charts.js`.
+- Script: `scripts/design_env_check.sh` (idempotent tool-availability check).
+- Skill order is now **design → pm → loop**; plugin/marketplace manifests + keywords updated.
+- Empirically validated on foamlab (2026-06-23): a 5/100 "color-copied" mockup rebuilt to codex 84 /
+  gemini 92 via this loop. Stitch prompting rules + MCP connection captured from official docs + live runs.
+
 ## 0.4.1
 
 ### Fixed

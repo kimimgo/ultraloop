@@ -1,0 +1,30 @@
+# SITE.md — <PRODUCT> design
+
+## 1. Vision
+<One paragraph: what the product is, the real end-user, the core job. The product truth that every screen serves.>
+
+## 2. Principles (from the cold critique)
+<Ranked design principles distilled from the multi-model CRITIQUE phase — the things that must be true for an
+expert to trust this UI. e.g. set-based/iterative IA; transparency before action; domain-correct instruments;
+separated concerns; one coherent shell.>
+
+## 3. Stitch project
+- Project ID: `<id>`  ·  designSystem asset (reuse): `assets/<id>`  ·  deviceType: DESKTOP
+- See `metadata.json` for screen ids/positions.
+
+## 4. Sitemap
+- [ ] <page-name> — <one-line purpose>
+- ...
+
+## 5. Roadmap (backlog)
+1. <next page> — <what + why>  (NEXT)
+2. ...
+N. INTEGRATION — token-normalize + cross-nav + real canvases (assets/design/{integrate.py,charts.js}).
+N+1. EVAL — codex/gemini cold re-score → iterate to target (e.g. 97/100).
+
+## 6. Creative freedom (ideas if roadmap empty)
+- ...
+
+## 7. Hosting
+Self-host on traefik tailnet (`infra/services/artifacts/publish.sh --discord <file>`); staging in
+`.stitch/designs/`; published copies in the artifacts public dir. Accumulate — never delete prior artifacts.

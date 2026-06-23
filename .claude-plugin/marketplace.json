@@ -4,16 +4,16 @@
     "name": "kimimgo"
   },
   "metadata": {
-    "description": "Autonomous software-engineering loop — role-separated PM planning + faithful board execution, orchestrating gh-roadmap and proven skills.",
-    "version": "0.4.1",
+    "description": "Autonomous product loop — role-separated UI/UX design + PM planning + faithful board execution, orchestrating Google Stitch, gh-roadmap, and the harness's proven skills.",
+    "version": "0.5.0",
     "pluginRoot": "."
   },
   "plugins": [
     {
       "name": "ultraloop",
       "source": "./",
-      "description": "Two skills sharing one engine: ultraloop:pm (plan -> write the board) and ultraloop:loop (read the board -> TDD + pre-merge E2E -> ship, logging progress to the board). Orchestrates gh-roadmap (board structure/setup authority) + proven planning/spec/TDD/E2E skills instead of reimplementing them. Board is the single source of truth; roles and permissions are fully separated.",
-      "version": "0.4.1",
+      "description": "Three skills sharing one engine: ultraloop:design (Stitch-foundation UI/UX → cold multi-model critique → integrate → re-score loop → approved design system), ultraloop:pm (plan → write the board), ultraloop:loop (read the board → TDD + pre-merge E2E → ship). Orchestrates Google Stitch + the harness design tools + gh-roadmap + proven planning/spec/TDD/E2E skills instead of reimplementing them. Board is the single source of truth; roles and permissions are fully separated.",
+      "version": "0.5.0",
       "keywords": [
         "autonomous-agent",
         "self-paced-loop",
@@ -23,7 +23,10 @@
         "github-projects",
         "roadmap",
         "e2e",
-        "pm"
+        "pm",
+        "design",
+        "ui-ux",
+        "stitch"
       ]
     }
   ]
