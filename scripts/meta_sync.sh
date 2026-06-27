@@ -51,7 +51,8 @@ if [ -n "${UE_RAW_OVERRIDE:-}" ]; then RAW="$UE_RAW_OVERRIDE"; else
   PNODE="$(cfg_get roadmap.project_node_id "")"
   TOKEN_ENV="$(cfg_get roadmap.token_env UE_PROJECT_TOKEN)"
   [ -n "$PNODE" ] || { ue_log "roadmap.project_node_id 미설정"; exit 3; }
-  RAW="$(GH_TOKEN="${!TOKEN_ENV:-${GH_TOKEN:-}}" gh api graphql -f query='query($id:ID!){ node(id:$id){ ... on ProjectV2 { items(first:100){ nodes {
+  # --paginate + $endCursor/pageInfo: 100+ 카드 보드도 전부 읽는다(누락 방지). 출력=페이지별 JSON 연결.
+  RAW="$(GH_TOKEN="${!TOKEN_ENV:-${GH_TOKEN:-}}" gh api graphql --paginate -f query='query($id:ID!,$endCursor:String){ node(id:$id){ ... on ProjectV2 { items(first:100, after:$endCursor){ pageInfo{ hasNextPage endCursor } nodes {
       content{ ... on Issue { number title state body url repository{ nameWithOwner } labels(first:20){ nodes{ name } } blockedBy(first:20){ nodes{ number state } } } }
       fieldValues(first:20){ nodes{ ... on ProjectV2ItemFieldSingleSelectValue { name field{ ... on ProjectV2FieldCommon { name } } } } } } } } } }' \
       -f id="$PNODE" 2>/tmp/ue_ms.err)" || { ue_log "보드 graphql 실패: $(head -1 /tmp/ue_ms.err)"; exit 5; }
@@ -61,7 +62,16 @@ fi
 OUT="$(UE_RAW="$RAW" python3 - "$MODE" "$READY" "$FLAG" <<'PY'
 import json, re, sys, os, collections
 mode, ready, flag = sys.argv[1], sys.argv[2].lower(), sys.argv[3]
-nodes = (json.loads(os.environ["UE_RAW"]).get("data",{}).get("node") or {}).get("items",{}).get("nodes",[])
+def _all_nodes(raw):
+    # --paginate 출력은 페이지별 JSON이 연결돼 올 수 있다(단일 페이지·self-test 단일 JSON도 동일 처리).
+    dec = json.JSONDecoder(); i = 0; out = []; raw = raw.strip()
+    while i < len(raw):
+        obj, i = dec.raw_decode(raw, i)
+        items = ((obj.get("data", {}) or {}).get("node") or {}).get("items", {}) or {}
+        out += (items.get("nodes") or [])
+        while i < len(raw) and raw[i] in " \t\r\n": i += 1
+    return out
+nodes = _all_nodes(os.environ["UE_RAW"])
 cards, by_code = [], {}
 for it in nodes:
     c = it.get("content") or {}
@@ -108,8 +118,8 @@ elif mode == "reconcile":
             print(f"SET_DONE {card['url']}")
         elif card["status"] == "Done" and card["state"] == "OPEN":
             print(f"WARN 카드 Done인데 이슈 OPEN — {card['repo']}#{card['number']} (이슈 close는 수동 판단)", file=sys.stderr)
-        elif "blocked" in card["labels"] and card["status"] == "In Progress":
-            print(f"WARN blocked 라벨인데 In Progress — {card['repo']}#{card['number']}", file=sys.stderr)
+        elif "blocked" in card["labels"] and card["status"] == "In-Progress":
+            print(f"WARN blocked 라벨인데 In-Progress — {card['repo']}#{card['number']}", file=sys.stderr)
 elif mode == "rollup":
     by_repo = collections.defaultdict(list)
     for card in cards: by_repo[card["repo"]].append(card)
@@ -121,7 +131,7 @@ elif mode == "rollup":
         line = " · ".join(f"{k} {v}" for k, v in sorted(st.items()))
         print(f"### {repo} — {len(cs)}카드\n- 상태: {line}" + (f" · 🔒blocked {blocked}" if blocked else ""))
         for c in cs:
-            if c["status"] == "In Progress": print(f"  - ▶ #{c['number']} {c['title'][:60]}")
+            if c["status"] == "In-Progress": print(f"  - ▶ #{c['number']} {c['title'][:60]}")
         print()
     total = collections.Counter((c["status"] or "(미설정)") for c in cards)
     print("**전체**: " + " · ".join(f"{k} {v}" for k, v in sorted(total.items())))

@@ -5,8 +5,8 @@
 <h1 align="center">ultraloop</h1>
 
 <p align="center">
-  <em>An autonomous software-engineering loop for Claude Code — split into two role-separated skills:<br>
-  one plans and writes the board, the other reads the board and ships it.</em>
+  <em>An autonomous software-engineering loop for Claude Code — split into three role-separated skills:<br>
+  one designs the UI/UX, one plans and writes the board, the other reads the board and ships it.</em>
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <strong>v0.4.0</strong> &nbsp;·&nbsp; <code>/ultraloop:pm</code> &nbsp;·&nbsp; <code>/ultraloop:loop</code>
+  <strong>v0.6.0</strong> &nbsp;·&nbsp; <code>/ultraloop:design</code> &nbsp;·&nbsp; <code>/ultraloop:pm</code> &nbsp;·&nbsp; <code>/ultraloop:loop</code>
 </p>
 
 ---
@@ -45,6 +45,8 @@ Neither can do the other's job — the separation is enforced at the tool-permis
 - **TDD-first** — every change starts from a failing test (Red → Green → Refactor).
 - **E2E before merge** — `main` only receives code that passed a *real* production E2E run, captured
   as evidence and attached to the board card. Running ≠ correct.
+- **Reliability gate (optional)** — with `eval.enabled`, release-critical cards must clear `pass^k`
+  (every repeat passes) and others a `pass@k` bar, so a flaky change can't slip through one lucky run.
 - **Faithful board** — `loop` moves each card through `In Progress → Done` and logs decisions,
   blockers, and results as it goes. Board/issue/PR/commit text is written in plain product language —
   it never names a tool, agent, or automation.
@@ -198,9 +200,10 @@ you rarely call it by hand. It probes prerequisites then sets up, skipping anyth
 ```
 ultraloop/
 ├── .claude-plugin/
-│   ├── plugin.json          # registers both skills
+│   ├── plugin.json          # registers all three skills
 │   └── marketplace.json     # this repo as a Claude Code marketplace
 ├── skills/
+│   ├── design/SKILL.md      # craft UI/UX to a verified score → hand DESIGN.md to pm
 │   ├── pm/SKILL.md          # plan → write the board
 │   └── loop/SKILL.md        # read the board → TDD + E2E → ship
 ├── references/              # progressive-disclosure docs (loop, E2E, DoD, multi-repo, …)
@@ -220,10 +223,13 @@ ultraloop/
 cp path/to/ultraloop/config.example.yaml ./ultraloop.config.yaml
 #    edit `repo:` and the mission, leave the rest on `auto`
 
-# 3. Plan — fills the board with milestones, cards, acceptance criteria
+# 3. Design (optional, runs first) — craft UI/UX to a verified score, hand off DESIGN.md
+/ultraloop:design
+
+# 4. Plan — fills the board with milestones, cards, acceptance criteria
 /ultraloop:pm
 
-# 4. Loop — reads the approved board and ships it, autonomously
+# 5. Loop — reads the approved board and ships it, autonomously
 /ultraloop:loop
 ```
 

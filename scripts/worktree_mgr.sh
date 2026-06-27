@@ -39,8 +39,8 @@ case "$CMD" in
         ue_log "gc: 레인 #$ISSUE 승인 대기 참조 → 보존"; preserved=$((preserved+1)); continue
       fi
       ( cd "$path" 2>/dev/null || exit 0
-        # 보존규칙①: 미커밋 변경
-        if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then exit 10; fi
+        # 보존규칙①: 미커밋 변경 — git diff는 untracked 파일을 못 보므로 status --porcelain(untracked 포함).
+        if [ -n "$(git status --porcelain 2>/dev/null)" ]; then exit 10; fi
         BR="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
         # 보존규칙②: main보다 앞선 미머지 브랜치
         git fetch -q origin "$DEFB" 2>/dev/null || true

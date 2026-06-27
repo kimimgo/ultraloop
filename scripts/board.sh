@@ -63,13 +63,17 @@ cmd="${1:-}"; shift || true
 case "$cmd" in
 item)
   URL="${1:?usage: item <issue-url>}"
-  IID="$(gq -f query='query($id:ID!){ node(id:$id){ ... on ProjectV2 { items(first:100){ totalCount nodes{ id content{ ... on Issue { url } } } } } } }' \
-       -f id="$PNODE" | python3 -c '
+  # --paginate + $endCursor/pageInfo: 100+ 카드 보드도 전부 훑어 item-id 를 찾는다(누락 방지).
+  IID="$(gh api graphql --paginate -f query='query($id:ID!,$endCursor:String){ node(id:$id){ ... on ProjectV2 { items(first:100, after:$endCursor){ pageInfo{ hasNextPage endCursor } nodes{ id content{ ... on Issue { url } } } } } } }' \
+       -f id="$PNODE" 2>/tmp/ue_bd.err | python3 -c '
 import json,sys
-d=json.load(sys.stdin)["data"]["node"]["items"]
-if d["totalCount"]>100: print("WARN: 보드 100+ 카드 — 페이지네이션 미지원, 누락 가능", file=sys.stderr)
-for it in d["nodes"]:
-    if (it.get("content") or {}).get("url")==sys.argv[1]: print(it["id"]); break' "$URL")"
+dec=json.JSONDecoder(); raw=sys.stdin.read().strip(); i=0; url=sys.argv[1]
+while i<len(raw):
+    o,i=dec.raw_decode(raw,i)
+    items=((o.get("data",{}) or {}).get("node") or {}).get("items",{}) or {}
+    for it in (items.get("nodes") or []):
+        if (it.get("content") or {}).get("url")==url: print(it["id"]); sys.exit(0)
+    while i<len(raw) and raw[i] in " \t\r\n": i+=1' "$URL")"
   [ -n "$IID" ] && echo "$IID" || exit 1 ;;
 add)
   URL="${1:?usage: add <issue-url> [--status S] [--stage G]}"; shift

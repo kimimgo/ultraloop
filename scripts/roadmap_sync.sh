@@ -43,7 +43,8 @@ fi
 if ! gh project item-list --help >/dev/null 2>&1; then
   PNODE="$(cfg_get roadmap.project_node_id "")"
   [ -n "$PNODE" ] || { ue_log "gh project 부재 + project_node_id 미기록 → 보드 읽기 불가(부트스트랩/기록 필요)"; exit 3; }
-  RAW="$(GH_TOKEN="${!TOKEN_ENV:-${GH_TOKEN:-}}" gh api graphql -f query='query($id:ID!){ node(id:$id){ ... on ProjectV2 { items(first:100){ nodes {
+  # --paginate + $endCursor/pageInfo: 100+ 카드 보드도 전부 읽는다(Ready 카드 누락 방지).
+  RAW="$(GH_TOKEN="${!TOKEN_ENV:-${GH_TOKEN:-}}" gh api graphql --paginate -f query='query($id:ID!,$endCursor:String){ node(id:$id){ ... on ProjectV2 { items(first:100, after:$endCursor){ pageInfo{ hasNextPage endCursor } nodes {
       content{ ... on Issue { number title repository{ nameWithOwner } } }
       fieldValues(first:20){ nodes{ ... on ProjectV2ItemFieldSingleSelectValue { name field{ ... on ProjectV2FieldCommon { name } } } } } } } } } }' \
       -f id="$PNODE" 2>/tmp/ue_rs.err)"; RC=$?
@@ -59,7 +60,14 @@ if ! gh project item-list --help >/dev/null 2>&1; then
   printf '%s' "$RAW" | python3 -c '
 import json,sys
 N=int(sys.argv[1]); FILTER=sys.argv[2]; approved=sys.argv[3]=="true"
-nodes=(json.load(sys.stdin).get("data",{}).get("node") or {}).get("items",{}).get("nodes",[])
+def _all(raw):
+    dec=json.JSONDecoder(); i=0; out=[]; raw=raw.strip()
+    while i<len(raw):
+        o,i=dec.raw_decode(raw,i)
+        out+=((((o.get("data",{}) or {}).get("node") or {}).get("items",{}) or {}).get("nodes") or [])
+        while i<len(raw) and raw[i] in " \t\r\n": i+=1
+    return out
+nodes=_all(sys.stdin.read())
 items=[]
 for it in nodes:
     c=it.get("content") or {}

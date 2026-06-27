@@ -139,9 +139,18 @@ gh api -X PUT "repos/$REPO/branches/$DEFB/protection" -H "Accept: application/vn
 echo "[environments]"
 gh api -X PUT "repos/$REPO/environments/staging" >/dev/null 2>&1 && echo "  ✓ staging" || echo "  · staging env 실패(플랜)"
 REV="$(cfg_get hitl.reviewers '[]')"
+ENVN="$(cfg_get hitl.gated_environment production)"
 echo "  · production env = required reviewers(HITL). reviewers=$REV"
-echo "    (개인레포/플랜 제약 시 cd.yml의 수동 승인 단계로 폴백 — ci-cd-hitl.md)"
-gh api -X PUT "repos/$REPO/environments/$(cfg_get hitl.gated_environment production)" >/dev/null 2>&1 || true
+echo "    (형식: [{\"type\":\"User|Team\",\"id\":<수치 id>}] — username 아님. 개인레포/플랜 제약 시 cd.yml 수동 승인 폴백 — ci-cd-hitl.md)"
+if [ -n "$REV" ] && [ "$REV" != "[]" ]; then
+  # reviewer payload 를 실제로 등록한다 — environment 만 PUT 하면 HITL 승인이 안 걸린다.
+  printf '{"reviewers":%s}' "$REV" | gh api -X PUT "repos/$REPO/environments/$ENVN" --input - >/dev/null 2>&1 \
+    && echo "  ✓ production env + required reviewers 등록" \
+    || echo "  · reviewer 등록 실패(id 형식/플랜) — cd.yml 수동 승인으로 폴백"
+else
+  gh api -X PUT "repos/$REPO/environments/$ENVN" >/dev/null 2>&1 \
+    && echo "  · production env 생성(reviewer 미지정 — hitl.reviewers 비움; cd.yml 수동승인 폴백)" || true
+fi
 
 # ── 6. goal Stop훅 설치(.claude/settings.json, 절대경로 치환) ────────────────
 echo "[goal stop-hook]"
@@ -213,8 +222,17 @@ fi
 #  pm/loop 진입 시 이 마커가 없으면 자동으로 bootstrap_repo.sh 를 실행한다(멱등).
 echo "[bootstrap marker]"
 VER="$(python3 -c 'import json;print(json.load(open("'"$SKILL_DIR"'/.claude-plugin/plugin.json"))["version"])' 2>/dev/null || echo '?')"
-printf 'ultraloop bootstrap ok\nversion=%s\n' "$VER" > .claude/.ultraloop-bootstrapped 2>/dev/null \
-  && echo "  ✓ .claude/.ultraloop-bootstrapped (version=$VER)" || echo "  · 마커 기록 실패"
+# ★ 미완 부트스트랩을 '성공'으로 고착시키지 않는다 — 필수 전제(gh-roadmap 의존 + self-hosted 러너)가
+#   확보됐을 때만 마커를 찍는다. 없으면 다음 pm/loop 진입에서 자동 재부트스트랩(SKILL §0). 러너 조회
+#   실패('?')는 권한 문제일 수 있어 차단하지 않는다(에이전트가 첫 loop에서 재확인).
+if [ -z "$GHR_DIR" ]; then
+  echo "  ✗ 마커 생략 — gh-roadmap(★필수 의존) 부재. 설치 후 재진입 시 자동 재시도."
+elif [ "$RUNNERS_ONLINE" = "0" ]; then
+  echo "  ✗ 마커 생략 — self-hosted 러너 0대(CI가 영원히 queued). 러너 확보 후 재진입 시 자동 재시도."
+else
+  printf 'ultraloop bootstrap ok\nversion=%s\n' "$VER" > .claude/.ultraloop-bootstrapped 2>/dev/null \
+    && echo "  ✓ .claude/.ultraloop-bootstrapped (version=$VER)" || echo "  · 마커 기록 실패"
+fi
 
 # ── 7. 초기 커밋 ────────────────────────────────────────────────────────────
 echo "[seed commit]"

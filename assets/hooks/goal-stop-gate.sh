@@ -48,7 +48,7 @@ trap 'rm -f "$LOCK" 2>/dev/null || true' EXIT
 
 # --- 가드 2: 예산(cost_guard). budget-stop(exit 7)이면 정지 허용 -----------
 if [ -x "$SKILL_DIR/scripts/cost_guard.sh" ]; then
-  bash "$SKILL_DIR/scripts/cost_guard.sh" >/dev/null 2>&1
+  bash "$SKILL_DIR/scripts/cost_guard.sh" --no-tick >/dev/null 2>&1
   if [ "$?" -eq 7 ]; then
     bash "$SKILL_DIR/scripts/notify.sh" warn "ultraloop budget-stop" "예산 상한 도달 → 안전 정지(미완)" >/dev/null 2>&1 || true
     allow

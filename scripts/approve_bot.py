@@ -46,7 +46,8 @@ from pathlib import Path
 
 # ── config 로딩 (PyYAML 있으면 사용, 없으면 최소 파서) ──────────────────────
 SCRIPT_DIR = Path(__file__).resolve().parent
-CONFIG_PATH = Path(os.environ.get("ULTRALOOP_CONFIG", SCRIPT_DIR / ".." / "ultraloop.config.yaml"))
+# 기본 config = 대상 레포 cwd(loop가 대상 레포에서 호출). 플러그인 루트가 아니다.
+CONFIG_PATH = Path(os.environ.get("ULTRALOOP_CONFIG") or (Path.cwd() / "ultraloop.config.yaml"))
 RESULT_DIR = Path(os.environ.get("TMPDIR", "/tmp")) / "ultraloop-approvals"
 
 DEFAULT_TOKEN_ENV = "ULTRALOOP_DISCORD_BOT_TOKEN"
@@ -136,8 +137,8 @@ async def run_approval(approval_id: str, question: str, risk: str, ttl_min: int)
             super().__init__(timeout=ttl_seconds)
 
         async def _authorized(self, interaction: "discord.Interaction") -> bool:
-            # approver_user_ids 가 비어 있으면(미설정) 누구나 허용하지 않는다 — 안전 기본값.
-            if approvers and str(interaction.user.id) not in approvers:
+            # approver_user_ids 가 비어 있으면(미설정) 누구도 승인 못 한다 — fail-closed 안전 기본값.
+            if (not approvers) or (str(interaction.user.id) not in approvers):
                 await interaction.response.send_message(
                     "승인 권한이 없는 사용자입니다.", ephemeral=True
                 )

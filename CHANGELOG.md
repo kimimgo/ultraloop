@@ -2,6 +2,31 @@
 
 All notable changes to ultraloop are documented here. Versioning is [SemVer](https://semver.org/).
 
+## 0.6.1
+
+### Fixed (3-model audit — Codex gpt-5.5 + Claude Opus; 기본 동작 영향 없음 — 게이트 강화·정합)
+- **Status 옵션명 통일** — `meta_sync.sh`·loop/pm SKILL 의 `In Progress`(공백)/`Todo` → 정본
+  (`project-fields.json`: `In-Progress`/`Ready`). 카드 이동 실패(exit 5)·경고 미발화 해소.
+- **cost_guard 카운터 오염** — goal Stop 게이트가 매 정지 시도마다 loop-count 를 올리던 것 분리(`--no-tick`).
+- **E2E 판정 강화** — `grep -i PASS`(`password`/`bypass` 오탐) → `**PASS**`/`**FAIL**` 최종결과 마커.
+  `goal_check` 도 리포트 개수만 보던 것 → 미해결 FAIL/PASS 마커 내용 검증.
+- **승인 보안** — `approve_bot` approver 빈 목록=누구나 승인 → fail-closed; `approval_queue` 의 `bash -c`
+  명령주입 → 인자 배열 직접 실행; `approve_bot` 기본 config 경로 = 대상 레포 cwd.
+- **디스크 watchdog** — `e2e_down` 의 전역 `docker system prune`(공유 호스트 타 프로젝트 캐시 삭제) →
+  dangling 이미지/빌드 캐시만.
+- **E2E 격리** — `e2e_up` 의 `UE_LANE` 미export(레인 DB 볼륨 공유)·`.env.e2e` 미주입 → export + `--env-file`;
+  compose 모드 헬스 타임아웃은 실패로(조용한 성공 금지).
+- **보드 페이지네이션** — `roadmap_sync`/`meta_sync`/`board` 의 GraphQL `first:100` 고정 →
+  `--paginate` cursor(100+ 카드 누락 방지).
+- **부트스트랩 마커** — gh-roadmap 부재·러너 0 대에도 완료 마커를 찍던 것 → 전제 충족 시에만(미완 고착 방지).
+- **HITL reviewer 등록** — production Environment 에 reviewer payload 실제 등록(이전엔 environment 만 생성).
+- **prod-deployed 마커** — goal 종료조건이 요구하나 생성처가 없던 `.ultraloop/prod-deployed` →
+  `scripts/mark_deployed.sh` 신설 + ci-cd-hitl 배선.
+- **worktree GC** — `git diff`(untracked 못 봄) → `git status --porcelain`(미커밋 보존 정확).
+- **design `integrate.py`** — foamlab/m11 절대경로·토큰 하드코딩 → config/CLI 기반 일반 통합기.
+- **README** — 2스킬/v0.4.0 stale → design→pm→loop / v0.6.0 정합.
+- budgets `max_tokens`/`ci_minutes_per_day` 주석을 best-effort(미구현)로 정직화.
+
 ## 0.6.0
 
 ### Added

@@ -16,9 +16,11 @@ now=$(date +%s)
 [ -f "$START" ] || echo "$now" > "$START"
 start=$(cat "$START" 2>/dev/null || echo "$now")
 
-# loop 카운트 증가(이 호출 = loop ① 1회로 간주)
+# 인자: --no-tick = loop 카운트 증가 없이 검사만(goal Stop 게이트용). 기본 = tick(loop ① 1회).
+TICK=1; [ "${1:-}" = "--no-tick" ] && TICK=0
+# loop 카운트(tick 모드에서만 증가; 상한 검사용 cnt는 항상 읽는다)
 cnt=0; [ -f "$LOOPS" ] && cnt=$(cat "$LOOPS" 2>/dev/null || echo 0)
-cnt=$((cnt+1)); echo "$cnt" > "$LOOPS"
+[ "$TICK" = 1 ] && { cnt=$((cnt+1)); echo "$cnt" > "$LOOPS"; }
 
 MAXH="$(cfg_get budgets.max_wall_clock_hours 24)";  MAXH="${MAXH:-24}"
 MAXL="$(cfg_get budgets.max_loops 0)";              MAXL="${MAXL:-0}"

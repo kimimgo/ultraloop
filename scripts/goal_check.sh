@@ -73,15 +73,19 @@ if command -v gh >/dev/null 2>&1; then
   [ "${BLK:-0}" -gt 0 ] 2>/dev/null && fail "열린 blocked 이슈 ${BLK}개"
 fi
 
-# 3) E2E 증거가 하나도 없으면 미충족(merge전 E2E 게이트 산출물).
+# 3) E2E 증거: 리포트 존재 + 내용(최종결과 마커) 검증. 개수만으론 빈/플레이스홀더·stale를 못 거른다.
 if [ -d "./e2e/reports" ]; then
   CNT="$(find ./e2e/reports -name '*.md' 2>/dev/null | wc -l | tr -d ' ')"
   [ "${CNT:-0}" -ge 1 ] || fail "E2E 증거 리포트 없음(e2e/reports/*.md)"
+  # 미해결 FAIL 마커(report.template "## 최종 결과"의 **FAIL**)가 남아 있으면 미충족.
+  if grep -rlE '\*\*FAIL\*\*' ./e2e/reports/*.md >/dev/null 2>&1; then fail "E2E 리포트에 미해결 **FAIL** 마커 있음"; fi
+  # 최소 하나는 **PASS** 마커가 있어야(플레이스홀더만으론 미충족 — 'PASS/FAIL' 안내문은 마커가 아님).
+  grep -rlE '\*\*PASS\*\*' ./e2e/reports/*.md >/dev/null 2>&1 || fail "E2E 리포트에 **PASS** 마커 없음(미작성/미통과)"
 else
   fail "e2e/reports 디렉토리 없음 — Tier2 E2E 미수행"
 fi
 
-# 4) 프로덕션 HITL 승인 마커(에이전트가 배포 성공 시 기록).
+# 4) 프로덕션 HITL 승인 마커 — scripts/mark_deployed.sh 가 배포 성공·헬스 OK 후 기록(유일 생성 경로).
 HITL="$(cfg_get hitl.enabled true)"
 if [ "$HITL" = "true" ]; then
   [ -f "./.ultraloop/prod-deployed" ] || fail "프로덕션 HITL 배포 미완(.ultraloop/prod-deployed 마커 없음)"

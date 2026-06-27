@@ -68,7 +68,7 @@ allowed-tools:
 |---|---|
 | 보드/마일스톤/이슈/라벨 **생성·편집** (`gh`, 보드 스크립트) | 소스 코드 commit/push/merge |
 | 의존성(blocked-by)·sub-issue 계층 구성 | 브랜치/PR/배포 |
-| 카드 초기 배치(Todo) + 수용기준·시나리오 기재 | 진행에 따른 status 이동(loop가 함) |
+| 카드 초기 배치(Backlog/Ready) + 수용기준·시나리오 기재 | 진행에 따른 status 이동(loop가 함) |
 | 읽기용 `git log` | 파일 Write/Edit (권한 없음) |
 
 이 스킬의 `allowed-tools`에는 **Write/Edit가 없다** — 코드 변경은 도구 수준에서 차단된다.

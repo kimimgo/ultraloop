@@ -29,8 +29,10 @@ while :; do
   if [ -x "$SCN_FILE" ]; then
     if bash "$SCN_FILE"; then RC=0; else RC=$?; fi
   else
-    # 시나리오 스크립트가 없으면, 에이전트가 인터랙티브로 수행했다고 보고 리포트 존재 + PASS 마커로 판정
-    if grep -qiE 'PASS' "$REPORT" 2>/dev/null && ! grep -qiE 'FAIL' "$REPORT" 2>/dev/null; then RC=0; else RC=1; fi
+    # 시나리오 스크립트가 없으면, 에이전트가 인터랙티브로 수행했다고 보고 리포트의 최종결과 마커로 판정.
+    # report.template "## 최종 결과"의 **PASS**/**FAIL** 마커만 본다 — 'password'/'bypass' 부분일치나
+    # 스텝표의 'PASS/FAIL' 안내문 오탐 방지. 둘 다 없으면(미작성) FAIL 취급.
+    if grep -qE '\*\*PASS\*\*' "$REPORT" 2>/dev/null && ! grep -qE '\*\*FAIL\*\*' "$REPORT" 2>/dev/null; then RC=0; else RC=1; fi
   fi
   if [ "$RC" -eq 0 ]; then echo "  ✓ E2E PASS (attempt $attempt)"; exit 0; fi
   # 일시 실패 신호면 백오프 재시도

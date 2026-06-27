@@ -21,7 +21,7 @@ case "$CMD" in
     bash "$SDIR/notify.sh" approval-pending "ultraloop 승인 필요(고위험)" "[$RISK] $ACTION — 응답 대기(TTL ${TTL}m). 해당 레인 Parked, 다른 레인 계속." >/dev/null 2>&1 || true
     # 게이트웨이 봇이 있으면 버튼 띄우기(per-approval). 없으면 콘솔/폴링.
     if [ "$(cfg_get discord.mode gateway_bot)" = "gateway_bot" ] && command -v python3 >/dev/null 2>&1; then
-      ( bash -c "python3 '$SDIR/approve_bot.py' '$ID' '$ACTION' '$RISK' '$TTL'" >/dev/null 2>&1 & ) || true
+      ( python3 "$SDIR/approve_bot.py" "$ID" "$ACTION" "$RISK" "$TTL" >/dev/null 2>&1 & ) || true
     fi
     echo "$ID"
     ;;

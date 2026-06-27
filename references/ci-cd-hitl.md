@@ -47,7 +47,9 @@ Environment 승인(HITL)**. E2E가 merge 전이라 staging 스모크는 **얇은
 1. 대기 감지: `gh run list/view` 로 production job "waiting" 확인.
 2. **알림**(Discord + 보조 콘솔): 승인 대기 URL + staging 스모크 결과 + 배포될 버전/PR 목록.
 3. **병행**: 승인 전까지 강행하지 않고 다른 비배포 작업 계속(승인 큐와 동일 철학, `notify-approval.md`).
-4. 결과: 승인 → 배포/헬스/보고. 거부 → 원인 이슈(`hitl`/`bug`) → 수정 루프.
+4. 결과: 승인 → 배포 → 헬스 OK 확인 → `bash ${CLAUDE_PLUGIN_ROOT}/scripts/mark_deployed.sh <version>`
+   (`.ultraloop/prod-deployed` 마커 기록 = goal 종료조건; 이게 유일 생성 경로) → 보고.
+   거부 → 원인 이슈(`hitl`/`bug`) → 수정 루프.
 
 ## 6. 회귀·롤백·서킷브레이커
 - `nightly-e2e.yml` 전체 회귀(REQ-CD-2). 롤백 `workflow_dispatch(rollback_to)`.

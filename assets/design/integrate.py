@@ -1,41 +1,40 @@
 #!/usr/bin/env python3
-import re, sys, pathlib
+"""Design integrator (general) — token-normalize + cross-navigation injection.
 
-SRC = pathlib.Path("/home/imgyu/workspace/infra/services/artifacts/m11/.stitch/designs")
-DST = pathlib.Path("/home/imgyu/workspace/infra/services/artifacts/public")
+Config-driven; NO project specifics are baked in. Supply a JSON config (or CLI flags)
+per target project. This is a reusable template shipped with the ultraloop:design skill.
 
-# design filename -> published filename
-PAGES = {
-    "dashboard.html":     "m11-dashboard.html",
-    "workspace.html":     "m11-workspace.html",
-    "evidence-gate.html": "m11-evidence.html",
-    "job-monitor.html":   "m11-job.html",
-    "vnv.html":           "m11-vnv.html",
+Usage:
+  integrate.py --config integrate.config.json
+  integrate.py --src DIR --dst DIR --pages '{"design.html":"out.html"}' \
+               --colors '{"5de1fd":"36c5e0"}' --nav '[["Home","out.html",{"exact":false,"max":14}]]'
+
+JSON config schema (all keys optional except src/dst/pages):
+{
+  "src":   "/abs/path/to/stitch/designs",      # source HTML dir
+  "dst":   "/abs/path/to/published",           # output dir (created if missing)
+  "pages": {"design.html": "published.html"},  # source -> published filename
+  "colors":{"5de1fd": "36c5e0"},               # inline hex normalization (NO leading '#')
+  "nav":   [["match text","target.html",{"exact": false, "max": 14}]]  # cross-nav wiring
 }
+"""
+import re
+import sys
+import json
+import argparse
+import pathlib
 
-# conservative token normalization (inline hex -> foamlab DESIGN.md)
-COLOR = {
-    "5de1fd": "36c5e0", "50d7f2": "36c5e0", "00f2ff": "36c5e0",  # cyan -> instrument cyan
-    "fabb62": "f2b45c",                                           # amber -> agent amber
-    "101418": "15181d",                                           # bg -> app base
-}
-
-NAV_JS = r"""
-<script>/* m11 cross-navigation — wires real in-design affordances (tree/breadcrumb/rows) to sibling pages; NO pill switcher */
+# Generic cross-navigation: wires in-design affordances (tree/breadcrumb/rows) whose text
+# matches an entry to its sibling page. No pill switcher. MAP is injected from config.
+NAV_TEMPLATE = r"""
+<script>/* cross-navigation — wires visible affordances to sibling pages (config-driven) */
 (function(){
-  var MAP = [
-    ["foamlab", "m11-dashboard.html", {exact:false, max:14}],
-    ["Premixed CH4 flame", "m11-workspace.html", {exact:false, max:90}],
-    ["Plan v2", "m11-workspace.html", {exact:false, max:24}],
-    ["φ=0.90", "m11-evidence.html", {exact:false, max:30}],
-    ["φ=0.70", "m11-vnv.html", {exact:false, max:30}],
-    ["Job #13", "m11-job.html", {exact:false, max:30}],
-  ];
+  var MAP = __MAP__;
   function go(url){ return function(ev){ ev.preventDefault(); ev.stopPropagation(); location.href=url; }; }
   function wire(match,url,opt){
     opt=opt||{};
     Array.prototype.slice.call(document.querySelectorAll("body *")).forEach(function(el){
-      if(el.dataset.m11) return;
+      if(el.dataset.xnav) return;
       var txt=(el.textContent||"").replace(/\s+/g," ").trim();
       if(!txt) return;
       var hit = opt.exact ? (txt===match) : (txt.indexOf(match)>-1 && txt.length<=(opt.max||60));
@@ -46,9 +45,9 @@ NAV_JS = r"""
       });
       if(deeper) return; // let the smallest matching element own it
       var t = el.closest("button,a,li,tr,[role=row],[role=button],div") || el;
-      if(t.dataset.m11) return;
-      t.dataset.m11="1"; t.style.cursor="pointer"; t.setAttribute("title","→ "+url);
-      t.addEventListener("mouseenter",function(){t.style.outline="1px solid rgba(54,197,224,.5)"; t.style.outlineOffset="-1px";});
+      if(t.dataset.xnav) return;
+      t.dataset.xnav="1"; t.style.cursor="pointer"; t.setAttribute("title","→ "+url);
+      t.addEventListener("mouseenter",function(){t.style.outline="1px solid rgba(120,170,255,.5)"; t.style.outlineOffset="-1px";});
       t.addEventListener("mouseleave",function(){t.style.outline="";});
       t.addEventListener("click", go(url));
     });
@@ -58,18 +57,56 @@ NAV_JS = r"""
 </script>
 """
 
-def integrate(src_name, dst_name):
-    html = (SRC/src_name).read_text(encoding="utf-8", errors="ignore")
-    for a,b in COLOR.items():
-        html = re.sub("#"+a, "#"+b, html, flags=re.I)
-    if "</body>" in html:
-        html = html.replace("</body>", NAV_JS + "\n</body>", 1)
-    else:
-        html += NAV_JS
-    (DST/dst_name).write_text(html, encoding="utf-8")
+
+def build_nav(nav_map):
+    return NAV_TEMPLATE.replace("__MAP__", json.dumps(nav_map))
+
+
+def integrate(src_path, dst_path, colors, nav_js):
+    html = src_path.read_text(encoding="utf-8", errors="ignore")
+    for a, b in colors.items():
+        html = re.sub("#" + a, "#" + b, html, flags=re.I)
+    if nav_js:
+        if "</body>" in html:
+            html = html.replace("</body>", nav_js + "\n</body>", 1)
+        else:
+            html += nav_js
+    dst_path.write_text(html, encoding="utf-8")
     return len(html)
 
-for s,d in PAGES.items():
-    n = integrate(s,d)
-    print(f"{d}: {n} bytes")
-print("done")
+
+def main():
+    ap = argparse.ArgumentParser(description="Config-driven design integrator (token-normalize + cross-nav).")
+    ap.add_argument("--config", help="JSON config with src/dst/pages/colors/nav")
+    ap.add_argument("--src", help="source HTML dir (overrides config)")
+    ap.add_argument("--dst", help="output dir (overrides config)")
+    ap.add_argument("--pages", help="JSON object {src.html: out.html}")
+    ap.add_argument("--colors", help="JSON object {hex: hex} (no leading #)")
+    ap.add_argument("--nav", help="JSON array of [match, url, opts]")
+    a = ap.parse_args()
+
+    cfg = {}
+    if a.config:
+        cfg = json.loads(pathlib.Path(a.config).read_text(encoding="utf-8"))
+
+    src = a.src or cfg.get("src")
+    dst = a.dst or cfg.get("dst")
+    pages = json.loads(a.pages) if a.pages else cfg.get("pages", {})
+    colors = json.loads(a.colors) if a.colors else cfg.get("colors", {})
+    nav = json.loads(a.nav) if a.nav else cfg.get("nav", [])
+
+    if not src or not dst or not pages:
+        sys.exit("need --src, --dst and --pages (or a --config providing them)")
+
+    src_dir, dst_dir = pathlib.Path(src), pathlib.Path(dst)
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    nav_js = build_nav(nav) if nav else ""
+
+    for s, d in pages.items():
+        n = integrate(src_dir / s, dst_dir / d, colors, nav_js)
+        print(f"{d}: {n} bytes")
+    print("done")
+
+
+if __name__ == "__main__":
+    main()

@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "Autonomous product loop — role-separated UI/UX design + PM planning + faithful board execution, orchestrating Google Stitch, gh-roadmap, and the harness's proven skills.",
-    "version": "0.6.0",
+    "version": "0.6.1",
     "pluginRoot": "."
   },
   "plugins": [
@@ -13,7 +13,7 @@
       "name": "ultraloop",
       "source": "./",
       "description": "Three skills sharing one engine: ultraloop:design (Stitch-foundation UI/UX → cold multi-model critique → integrate → re-score loop → approved design system), ultraloop:pm (plan → write the board), ultraloop:loop (read the board → TDD + pre-merge E2E → ship). Orchestrates Google Stitch + the harness design tools + gh-roadmap + proven planning/spec/TDD/E2E skills instead of reimplementing them. Board is the single source of truth; roles and permissions are fully separated.",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "keywords": [
         "autonomous-agent",
         "self-paced-loop",

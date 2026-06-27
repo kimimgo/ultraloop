@@ -72,8 +72,8 @@ engine:
 budgets:
   max_loops: 0                    # 0=무제한(단 goal.max_iterations 가 상한). >0 이면 loop 수 캡.
   max_wall_clock_hours: 24        # 전체 실행 벽시계 상한
-  max_tokens: 0                   # 0=세션 한도 따름. >0 이면 토큰 캡.
-  ci_minutes_per_day: 0           # 0=무제한. >0 이면 CI 분 서킷브레이커(REQ-CD-3).
+  max_tokens: 0                   # 토큰 회계는 하네스(세션)가 — cost_guard 미집계(best-effort). 표시용/향후.
+  ci_minutes_per_day: 0           # CI 분 서킷브레이커는 현재 미구현(best-effort) — 표시용/향후(REQ-CD-3).
   dead_mans_switch_minutes: 30    # N분 무진전이면 알림(REQ-ST-3)
   # ↓ N레포 모드 전용 (실측: xhigh 워커 3개 동시 = 주간 한도 77% — multi-repo §6)
   weekly_usage_floor_percent: 90  # 주간 사용량 이 % 도달 시 신규 워커 기동 중단(진행분만 마감). 메타가 판단.
