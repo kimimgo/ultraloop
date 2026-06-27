@@ -24,6 +24,9 @@
                 · 선택 GAN 품질 루프(config quality.gan_evaluator=true): gan-evaluator 에이전트가 E2E
                   증거를 이슈 수용기준 루브릭으로 채점 → threshold 미달 시 재작업·재평가. ★max_rounds
                   하드가드 — 초과 시 그 레인 Parked+승인큐(무한 품질 루프 금지)
+                · 선택 신뢰도 eval(config eval.enabled=true): critical 카드(eval.critical_labels)는 핵심
+                  테스트/E2E 를 반복 실행해 pass^k=1.0, 그 외는 pass@k≥threshold 측정(eval-harness 스킬,
+                  없으면 max_k 회 반복 폴백) → 결과 .claude/evals/<card>.log. ★max_k 하드가드
 [오케스트레이터]
  ⑦ join+merge   E2E 통과(merge-ready) 레인만 squash merge · 충돌 직렬화 해소
  ⑧ 보드 업데이트 카드 Done + E2E-Evidence 경로 · 버그/엣지 → 새 이슈 · 로드맵 수정(notify-only+감사)

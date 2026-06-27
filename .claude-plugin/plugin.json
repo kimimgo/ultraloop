@@ -1,6 +1,6 @@
 {
   "name": "ultraloop",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Autonomous product loop for Claude Code that ORCHESTRATES proven skills rather than reimplementing them — gh-roadmap owns the GitHub Projects board; design/strategy/spec/TDD/E2E skills do the work. THREE role-separated skills: ultraloop:design crafts the UI/UX to a verifiable score (Google-Stitch foundation + the harness's verified design tools, in a generate -> cold multi-model critique -> integrate -> re-score loop) and hands an approved design system to pm; ultraloop:pm plans (product-strategy -> outcome-roadmap -> strategy-red-team -> speckit -> prioritization) and writes the board; ultraloop:loop reads that board and ships it via TDD + pre-merge production E2E, faithfully logging progress back to the board. The board is the single source of truth.",
   "author": {
     "name": "kimimgo"

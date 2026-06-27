@@ -11,6 +11,7 @@
 - [ ] 엣지케이스 헌팅 ≥1라운드, 발견 항목 전부 해결 또는 이슈 트래킹
 - [ ] CI 녹색(lint/typecheck/test/build) — 봇 QA 게이트 통과
 - [ ] 테스트 커버리지 ≥ `config.coverage_target`(기본 80%)
+- [ ] **신뢰도 게이트**(`config.eval.enabled` 시): critical 카드 pass^k=100%, 그 외 pass@k ≥ `eval.capability_threshold` — 증거 `.claude/evals/<card>.log`(eval-harness, §9.7 결정적 assertion 보완)
 - [ ] **단일 명령 기동** 가능(README ↔ E2E up 계약 일치, 룰팩 `references/rules/*` 준수)
 - [ ] CD 실증: `merge → staging 자동배포 → 스모크 → production HITL 승인 → 배포`
 - [ ] 보안/시크릿: 평문 시크릿 0, `.env.e2e`/Secrets만, 자격증명 수명 점검(`observability.md`)

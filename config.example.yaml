@@ -112,6 +112,17 @@ quality:
   threshold: 8                    # 10점 만점 통과선
   max_rounds: 3                   # ★ 하드가드 의무 — 품질 루프도 무한반복 금지(미달 3회면 Parked+승인큐)
 
+# ── 선택: 신뢰도 eval (pass@k / pass^k — eval-harness 스킬 차용) ──────────────
+# 1회 통과는 flaky 변경의 신뢰도를 보장 못 한다. critical 카드는 반복 실행으로 안정성을 잰다.
+eval:
+  enabled: false                  # true면 카드 검증에 pass@k/pass^k 신뢰도 게이트 추가(끄면 기존 루프 무영향)
+  capability_pass_at_k: 3         # 기능 eval: k회 시도 중 1회+ 통과(pass@k) 측정
+  capability_threshold: 0.9       # pass@k 통과선(기본 pass@3 ≥ 0.90)
+  regression_pass_caret_k: 3      # 회귀 eval: critical 경로는 k회 모두 통과(pass^k = 1.0) 요구
+  critical_labels: ["release-critical", "payment", "auth"]  # pass^k를 강제할 카드 라벨
+  max_k: 5                        # ★ 하드가드 — 반복 상한(무한 재실행 금지)
+  artifact_dir: ".claude/evals"   # eval 정의·로그 저장 위치(eval-harness 레이아웃)
+
 # ── 프로덕션 E2E (Tier 2) — merge 전 게이트 ★ ──────────────────────────────
 e2e:
   runner: auto                    # auto | docker_compose | readme_command

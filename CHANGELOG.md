@@ -2,6 +2,17 @@
 
 All notable changes to ultraloop are documented here. Versioning is [SemVer](https://semver.org/).
 
+## 0.6.0
+
+### Added
+- **신뢰도 eval 게이트 (pass@k / pass^k)** — `eval-harness` 스킬을 의존성으로 배선. `config.eval.enabled=true`
+  면 카드 검증에 신뢰도 차원을 더한다: critical 카드(`eval.critical_labels`)는 핵심 테스트/E2E 를 반복
+  실행해 pass^k=1.0(전부 통과)을 요구하고, 그 외 카드는 pass@k ≥ `eval.capability_threshold` 를 잰다.
+  스킬 부재 시 `eval.max_k` 회 반복 실행으로 폴백. 증거는 `.claude/evals/<card>.log`.
+- 배선: `config.example.yaml`(`eval:` 블록), `references/dependencies.md`(§2 맵·§3 규칙),
+  `references/loop-protocol.md`(⑥ E2E 단계), `references/definition-of-done.md`(DoD 체크리스트).
+- 기본 `eval.enabled=false` — 끄면 기존 루프 동작에 영향 없음(하위호환).
+
 ## 0.5.0
 
 ### Added

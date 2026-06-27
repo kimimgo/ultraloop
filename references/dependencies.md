@@ -38,6 +38,7 @@ PROGRESS 뷰/콘솔에 또렷이 남긴다.
 | **보드** | **`gh-roadmap`** ★ | 보드·필드·뷰·로드맵·빌트인 워크플로·멀티레포 |
 | Tier1 TDD | `tdd-workflow` | 단위/통합 (Red→Green→Refactor) |
 | 품질(선택) | `gan-style-harness` / `gan-evaluator` | E2E 증거를 루브릭으로 채점 |
+| 신뢰도 eval(선택) | `eval-harness` | 카드 검증을 pass@k/pass^k 로 — DoD 신뢰도 게이트(`config.eval.enabled`) |
 | 검증·리뷰·배포(유도) | `gstack-qa` · `gstack-review` · `gstack-investigate` · `gstack-ship` | 있으면 활용(자체 스크립트는 폴백) |
 | 다중에이전트 fan-out | (Claude Code **Workflow 도구**) | 단계 병렬화 — `workflow-orchestration.md` |
 
@@ -47,5 +48,6 @@ PROGRESS 뷰/콘솔에 또렷이 남긴다.
 
 - **있으면 호출, 없으면 폴백.** 스킬 부재 시 ultraloop 이 직접 수행하되 산출물 형식 동일. 부재는 명시(silent degrade 금지).
 - **gstack 계열**은 loop 의 E2E/리뷰/배포 단계에서 *유도*(필수 아님). ultraloop `e2e_run.sh`·`ship_pr.sh` 는 폴백 경로.
+- **eval-harness**는 `config.eval.enabled=true` 일 때만 — critical 카드(`eval.critical_labels`)는 pass^k=1.0, 그 외는 pass@k. 스킬 부재 시 ultraloop 이 핵심 테스트/E2E 를 `eval.max_k` 회 반복 실행으로 폴백(산출물 형식 동일, `.claude/evals/`).
 - **부트스트랩 probe** 가 스킬 가용성을 점검(`~/.claude/skills`, `claude plugin list`). gh-roadmap 없으면 또렷이 경고.
 - 이 모든 호출·도구는 **보드/이슈/PR/커밋의 외부 가시 문구에 노출하지 않는다**(`messaging.md` — 사람이 쓴 제품 언어로).
