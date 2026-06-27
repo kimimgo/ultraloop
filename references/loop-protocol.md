@@ -7,7 +7,7 @@
 
 ```
 [오케스트레이터]
- ① 계획 점검    보드→PROGRESS 뷰 재생성(regen_progress.sh) · 로드맵 게이트(roadmap_sync.sh)
+ ① 계획 점검    보드→PROGRESS 뷰 재생성(regen_progress.sh) · 진척도 캐시 갱신(status.sh --refresh) · 로드맵 게이트(roadmap_sync.sh)
                 · **보드 정합 수렴(meta_sync.sh reconcile — 닫힌 이슈인데 카드≠Done이면 멱등 수렴)**
                 · **로드맵 전략 정합 점검(매 루프)**: 남은 카드들이 기획 게이트의 outcome-roadmap
                   전략 의도와 여전히 맞는가 — 드리프트(전략과 무관한 카드 증식, outcome 달성에 빠진

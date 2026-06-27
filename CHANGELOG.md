@@ -2,6 +2,17 @@
 
 All notable changes to ultraloop are documented here. Versioning is [SemVer](https://semver.org/).
 
+## 0.7.0
+
+### Added
+- **Loop 진행률 statusline + SessionStart 노출** — loop 진척을 한 줄 막대로.
+  - `scripts/status.sh` — `--refresh`(보드 Done 비율 + loop 횟수/경과 → `status.json` 캐시; loop ① 에서),
+    `--line`(캐시 → `[▓▓▓▓░░] 62% · 8/13 · 2▶ · 1⛔ · loop7 4h12m`).
+  - `hooks/hooks.json` + `hooks/session-start.sh` — ultraloop 프로젝트면 **세션 첫 시작 시 '활성 + 진척도'**
+    한 줄 노출(graphql 없이 캐시만 — 지연 없음). 비-프로젝트면 조용.
+  - loop ① 에 `status.sh --refresh` 배선(`loop-protocol.md` · loop SKILL §4).
+  - statusline 표시: `status.json`(레포별 `/tmp` 캐시)을 직접 읽어 한 줄 추가(사용자 statusline 측에서 연동).
+
 ## 0.6.1
 
 ### Fixed (3-model audit — Codex gpt-5.5 + Claude Opus; 기본 동작 영향 없음 — 게이트 강화·정합)

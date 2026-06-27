@@ -104,8 +104,9 @@ description: >-
 
 정밀 절차 = `${CLAUDE_PLUGIN_ROOT}/references/loop-protocol.md`. 한 loop:
 
-1. **계획 점검** — 보드→`PROGRESS.md` 뷰 재생성(`regen_progress.sh`) · 게이트(`roadmap_sync.sh`) · 환경점검
-   (`references/env-check.md`) · 비용/heartbeat(`cost_guard.sh`/`heartbeat.sh`) · 승인 큐 drain.
+1. **계획 점검** — 보드→`PROGRESS.md` 뷰 재생성(`regen_progress.sh`) · 진척도 캐시 갱신(`status.sh --refresh`,
+   statusline/SessionStart 가 읽는 한 줄 막대) · 게이트(`roadmap_sync.sh`) · 환경점검(`references/env-check.md`) ·
+   비용/heartbeat(`cost_guard.sh`/`heartbeat.sh`) · 승인 큐 drain.
 2. **레인 편성(Workflow fan-out)** — 다음 Ready 카드 N개(의존성 위배 X, 모듈 디렉토리 비충돌)를 **Claude Code
    Workflow 도구로 병렬 fan-out**(각 레인 `isolation:"worktree"`, model/effort=`config.workflow.by_phase.loop`) ·
    stale worktree GC. 동시 레인 ≤ `config.workflow.agents.max_subagents` 이자 ≤ `config.worktree.max_lanes`
