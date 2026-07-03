@@ -1,40 +1,42 @@
-# E2E 리포트: {{date}} — {{항목명}}
+# E2E report: {{date}} — {{item}}
 
-> 시나리오(scenario.template.md)를 실제로 돌린 결과 기록. PR "## E2E 증거" 섹션이 이걸 참조한다.
+> Record of actually running the scenario (scenario.template.md). The PR "## E2E evidence" section references this.
+<!-- write instance prose in the product's working language -->
 
-- **연결 이슈**: #
-- **스택 기동 명령**: <!-- README 단일 명령 그대로. 예: `docker compose -p <격리식별자> up -d` -->
-- **검증 인스턴스**: <!-- 격리 포트/식별자 -->
+- **Linked issue**: #
+- **Stack startup command**: <!-- the single README command verbatim. e.g. `docker compose -p <isolation-id> up -d` -->
+- **Verification instance**: <!-- isolated port/identifier -->
 
-## 스텝별 결과
-| # | 스텝 | 결과 | 비고 |
+## Per-step results
+| # | Step | Result | Notes |
 |---|------|------|------|
 | 1 |  | PASS/FAIL |  |
 | 2 |  | PASS/FAIL |  |
 
-## 스크린샷
-<!-- 링크 또는 썸네일만. 원본 임베드 금지(각 < 2MB). -->
+## Screenshots
+<!-- Links or thumbnails only. No original embeds (each < 2MB). -->
 - [step1]({{link}})
 
-## 트랜스크립트
-<!-- 콘솔/네트워크/CLI 출력 로그 경로 또는 링크. -->
+## Transcript
+<!-- Path or link to console/network/CLI output logs. -->
 -
 
-## 헬스
-<!-- 기동 후 헬스 체크 결과. 예: GET /healthz → 200, 컨테이너 healthy -->
+## Health
+<!-- Health check result after startup. e.g. GET /healthz → 200, container healthy -->
 -
 
-## 결정적 assertion 결과
-| assertion | 기대 | 실제 | 결과 |
+## Deterministic assertion results
+| assertion | Expected | Actual | Result |
 |-----------|------|------|------|
 | HTTP status |  |  | PASS/FAIL |
 | exit code |  |  | PASS/FAIL |
-| DB 행수 |  |  | PASS/FAIL |
+| DB row count |  |  | PASS/FAIL |
 
-## 최종 결과
+## Final result
 **PASS** / **FAIL**
-<!-- FAIL이면 라벨 e2e:fail 부여, merge 차단. -->
+<!-- machine tokens: **PASS** / **FAIL** — never localize or restyle -->
+<!-- If FAIL, apply the e2e:fail label and block merge. -->
 
-## 증거 경로
-<!-- 이 리포트와 스크린샷/트랜스크립트가 저장된 경로. 보드 E2E-Evidence 필드에 기록. -->
+## Evidence paths
+<!-- Where this report and the screenshots/transcripts are stored. Record in the board E2E-Evidence field. -->
 -

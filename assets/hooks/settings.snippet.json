@@ -1,5 +1,5 @@
 {
-  "_comment": "ultraloop /goal 게이트 — 대상 레포 .claude/settings.json 의 hooks.Stop 에 병합. bootstrap_repo.sh 가 __ULTRALOOP_SKILL_DIR__ 를 이 스킬의 절대경로로 치환해 설치한다(런타임에 CLAUDE_SKILL_DIR 미설정이므로 절대경로 필수).",
+  "_comment": "ultraloop /goal gate — merge into hooks.Stop of the target repo .claude/settings.json. bootstrap_repo.sh installs it by replacing __ULTRALOOP_SKILL_DIR__ with the absolute path of this skill (CLAUDE_SKILL_DIR is unset at runtime, so an absolute path is required).",
   "hooks": {
     "Stop": [
       {

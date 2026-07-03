@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# e2e_up.sh <issue#> — 레인 격리 실배포(merge 전 E2E의 'up'). 헬스 대기 → 시드.
-#   레인별: compose project-name=ue-<issue#> · 동적 포트(base_port+issue) · 볼륨 격리.
-# 비결정: runner=auto면 compose 우선, 없으면 README 단일명령. 실제 시드/헬스는 에이전트가 보강.
+# e2e_up.sh <issue#> — lane-isolated real deployment (the up half of pre-merge E2E). Wait for health → seed.
+#   per lane: compose project-name=ue-<issue#> · dynamic port (base_port+issue) · volume isolation.
+# Non-deterministic part: with runner=auto compose is preferred, else the single README command. Actual seeding/health is reinforced by the agent.
 set -uo pipefail
 SDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SDIR/_lib.sh" 2>/dev/null || true
@@ -12,27 +12,27 @@ TIMEOUT="$(cfg_get e2e.health_timeout_seconds 120)"
 export UE_PORT="$PORT" UE_PROJECT="$PROJ" UE_LANE="$ISSUE"
 echo "[e2e up] project=$PROJ port=$PORT runner=$RUNNER"
 
-# 시크릿 주입(.env.e2e) — 평문 커밋 금지
+# secret injection (.env.e2e) — never commit plaintext
 SECRETS="$(cfg_get e2e.secrets_file .env.e2e)"
-[ -f "$SECRETS" ] && echo "  · secrets: $SECRETS (주입)" || echo "  · secrets 없음($SECRETS) — 필요시 vault/GH Secrets에서 생성"
+[ -f "$SECRETS" ] && echo "  · secrets: $SECRETS (injected)" || echo "  · no secrets file ($SECRETS) — create one from vault/GH Secrets if needed"
 
 RAN_COMPOSE=0
 if { [ "$RUNNER" = "auto" ] || [ "$RUNNER" = "docker_compose" ]; } && command -v docker >/dev/null 2>&1 && ls docker-compose*.y*ml compose*.y*ml >/dev/null 2>&1; then
-  ENVF=(); [ -f "$SECRETS" ] && ENVF=(--env-file "$SECRETS")   # 시크릿은 컨테이너에만 주입(셸 env 노출 회피)
-  UE_PORT="$PORT" UE_LANE="$ISSUE" docker compose -p "$PROJ" "${ENVF[@]}" up -d 2>/dev/null || { ue_log "compose up 실패"; exit 1; }
+  ENVF=(); [ -f "$SECRETS" ] && ENVF=(--env-file "$SECRETS")   # inject secrets into containers only (avoid exposing them in the shell env)
+  UE_PORT="$PORT" UE_LANE="$ISSUE" docker compose -p "$PROJ" "${ENVF[@]}" up -d 2>/dev/null || { ue_log "compose up failed — check the docker daemon and compose file; inspect with docker compose -p $PROJ logs"; exit 1; }
   echo "  · compose up (project=$PROJ, lane=$ISSUE)"; RAN_COMPOSE=1
 else
-  echo "  · README 단일 명령 기동으로 폴백 — 에이전트가 README의 기동 명령을 실행(rules/readme.md 계약)"
+  echo "  · falling back to single-command README startup — the agent runs the startup command from README (rules/readme.md contract)"
 fi
 
-# 헬스 대기(best-effort): 포트 열림 확인
-echo "  · 헬스 대기(≤${TIMEOUT}s) on :$PORT"
+# health wait (best-effort): check that the port is open
+echo "  · waiting for health (≤${TIMEOUT}s) on :$PORT"
 for _ in $(seq 1 "$TIMEOUT"); do
   (exec 3<>"/dev/tcp/127.0.0.1/$PORT") 2>/dev/null && { echo "  ✓ port $PORT up"; exit 0; }
   sleep 1
 done
-# compose로 띄웠는데 헬스 타임아웃 = 실배포 실패(조용한 성공 금지). README 폴백 모드는 에이전트가
-# 직접 기동하므로 여기선 port 미개방이 정상 → exit 0 으로 위임(flake 재시도는 e2e_run/오케스트레이터).
-if [ "$RAN_COMPOSE" = 1 ]; then ue_log "compose 헬스 타임아웃(:$PORT) — 실패"; exit 1; fi
-ue_log "README 폴백 모드 — 기동은 에이전트가 수행(:$PORT 대기 위임)"
+# compose started but health timed out = deployment failure (no silent success). In README fallback mode the agent
+# starts the app itself, so an unopened port here is normal → delegate with exit 0 (flake retries live in e2e_run/orchestrator).
+if [ "$RAN_COMPOSE" = 1 ]; then ue_log "compose health timeout (:$PORT) — deployment failed; inspect container logs with docker compose -p $PROJ logs"; exit 1; fi
+ue_log "README fallback mode — startup is performed by the agent (waiting on :$PORT delegated)"
 exit 0

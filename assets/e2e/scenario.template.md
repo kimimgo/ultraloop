@@ -1,30 +1,31 @@
-# E2E 시나리오: {{항목명}}
+# E2E scenario: {{item}}
 
-> 사용자 관점으로 "끝에서 끝까지" 검증한다. 관찰 가능한 증거 + **결정적 assertion**을 함께 둔다(SPEC §9.7).
+> Verify "end to end" from the user's perspective. Put observable evidence and **deterministic assertions** side by side (SPEC §9.7).
+<!-- write instance prose in the product's working language -->
 
-## 항목
-<!-- 어떤 기능/흐름을 검증하는가. 연결된 이슈 #번호. -->
+## Item
+<!-- Which feature/flow this verifies. Linked issue #number. -->
 
-## 사용자 타입
-<!-- 익명/로그인 사용자/관리자 등. -->
+## User type
+<!-- Anonymous / logged-in user / admin etc. -->
 
-## 사전조건 (시드)
-<!-- 필요한 데이터/상태. 어떤 시드 스크립트로 만드는지. 기동은 README 단일 명령(up) 기준. -->
+## Preconditions (seed)
+<!-- Data/state needed. Which seed script creates it. Startup follows the single README command (up). -->
 -
 
-## 스텝
-<!-- 클릭 / 셸 / HTTP 요청 등. 결정적으로 재현 가능하게. -->
+## Steps
+<!-- Clicks / shell / HTTP requests etc. Deterministically reproducible. -->
 1.
 2.
 3.
 
-## 기대 관찰 (증거 + 결정적 assertion 병행)
-<!-- 스크린샷/DOM 같은 관찰 증거와, 기계로 검증되는 결정적 assertion을 함께 적는다. -->
-- 스크린샷/DOM: <!-- 무엇이 보여야 하는가 -->
-- HTTP status: <!-- 예: GET /orders/1 → 200 -->
-- exit code: <!-- 예: CLI 명령 종료코드 0 -->
-- DB 행수: <!-- 예: SELECT count(*) FROM orders → 1 -->
+## Expected observations (evidence + deterministic assertions together)
+<!-- Write observation evidence like screenshots/DOM together with machine-verified deterministic assertions. -->
+- Screenshot/DOM: <!-- what must be visible -->
+- HTTP status: <!-- e.g. GET /orders/1 → 200 -->
+- exit code: <!-- e.g. CLI command exit code 0 -->
+- DB row count: <!-- e.g. SELECT count(*) FROM orders → 1 -->
 
-## PASS 기준
-<!-- 위 관찰/assertion이 모두 충족되면 PASS. 하나라도 어긋나면 FAIL → 라벨 e2e:fail. -->
+## PASS criteria
+<!-- PASS when all observations/assertions above are met. Any single mismatch is FAIL → label e2e:fail. -->
 -

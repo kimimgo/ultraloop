@@ -1,12 +1,12 @@
-# ultraloop 레인 격리 예시 compose (웹앱 + db 최소 2서비스).
+# ultraloop lane-isolation example compose (webapp + db, minimum 2 services).
 #
-# 레인 = 병렬 작업 단위. 레인끼리 충돌하지 않게 아래 3가지를 격리한다:
-#   1) project-name: `ue-<issue#>` 로 띄운다 → 컨테이너/네트워크 네임스페이스 분리
-#        예) docker compose -p ue-42 up -d
-#   2) 포트: 동적 할당 (`${UE_PORT:-14000}` 식) → 레인마다 다른 호스트 포트
-#   3) 볼륨: 레인별 이름 (`${UE_LANE:-default}` 접미) → 데이터 섞임 방지
+# lane = a unit of parallel work. Isolate these 3 things so lanes do not collide:
+#   1) project-name: bring it up as `ue-<issue#>` → separate container/network namespaces
+#        e.g. docker compose -p ue-42 up -d
+#   2) ports: dynamic allocation (`${UE_PORT:-14000}` style) → a different host port per lane
+#   3) volumes: per-lane names (suffixed with `${UE_LANE:-default}`) → prevents data mixing
 #
-# E2E `up`은 README의 단일 명령(예: `docker compose -p ue-<issue#> up -d`)을 그대로 부른다.
+# The E2E `up` calls the single README command (e.g. `docker compose -p ue-<issue#> up -d`) verbatim.
 
 services:
   web:
@@ -15,7 +15,7 @@ services:
       - "${UE_PORT:-14000}:8000"
     environment:
       - DATABASE_URL=postgres://app:app@db:5432/app
-      # 시크릿은 .env로 주입(커밋 금지). 예시는 .env.example 참조.
+      # Inject secrets via .env (never commit). See .env.example for a sample.
     depends_on:
       db:
         condition: service_healthy
@@ -42,6 +42,6 @@ services:
       start_period: 5s
 
 volumes:
-  # 레인별 격리: 이름에 레인 식별자를 섞어 데이터가 섞이지 않게 한다.
+  # Per-lane isolation: mix the lane identifier into the name so data does not mix.
   db-data:
     name: "ue-${UE_LANE:-default}-db-data"

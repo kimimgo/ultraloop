@@ -1,37 +1,41 @@
 #!/usr/bin/env python3
 """ultraloop approve_bot.py — egress-only Discord Gateway approval bot.
 
-SPEC v0.3 §13 (알림 & 승인 — 비동기 큐 + Discord 게이트웨이 봇).
+SPEC v0.3 §13 (notification & approval — async queue + Discord gateway bot).
 
-왜 게이트웨이(Gateway)인가 — egress-only / DLP 호환
+Why the Gateway — egress-only / DLP compatible
 ----------------------------------------------------
-회사 DLP 환경은 inbound(인그레스) 웹훅을 열 수 없는 경우가 많다. Discord
-Gateway 는 봇이 **바깥으로(outbound)** WebSocket(WSS) 연결을 맺고, 그 연결을
-타고 버튼 클릭 같은 INTERACTION_CREATE 이벤트를 **수신**한다. 즉 우리 쪽에
-열려 있는 포트가 전혀 필요 없다 — 송신만 하면 되는 방화벽에서도 동작한다.
-discord.py(v2) 는 이 Gateway 연결 + 버튼 컴포넌트(View/Button) 를 내장한다.
+Corporate DLP environments often cannot open inbound (ingress) webhooks. With
+the Discord Gateway, the bot opens an **outbound** WebSocket (WSS) connection
+and **receives** INTERACTION_CREATE events such as button clicks over that
+connection. In other words, no open port is needed on our side at all — it
+works even behind a send-only firewall.
+discord.py (v2) ships this Gateway connection + button components (View/Button) built in.
 
-동작
+Behavior
 ----
-1) approval_channel_id 채널에 [Y]/[N] 버튼 메시지를 POST.
-2) Gateway 로 들어오는 버튼 인터랙션을 기다린다.
-3) 누른 사람이 approver_user_ids 허용목록에 있어야만 유효(아니면 거절 안내).
-4) 선택(+선택적 사유)을 큐 디렉터리에 기록: <id>.result = "Y\n<reason>" / "N\n<reason>".
-5) 종료코드: 0=Y(승인) / 1=N(거부) / 4=TTL 타임아웃(hold).
+1) POST a [Y]/[N] button message to the approval_channel_id channel.
+2) Wait for button interactions arriving over the Gateway.
+3) The clicking user must be in the approver_user_ids allowlist to count
+   (otherwise a rejection notice is shown).
+4) Record the decision (+ optional reason) in the queue directory: <id>.result = "Y\n<reason>" / "N\n<reason>".
+5) Exit codes: 0=Y (approved) / 1=N (rejected) / 4=TTL timeout (hold).
 
-토큰
+Token
 ----
-discord.token_env 가 가리키는 환경변수에서만 읽는다(기본
-ULTRALOOP_DISCORD_BOT_TOKEN). 절대 하드코딩하지 않는다.
+Read only from the environment variable that discord.token_env points to
+(default ULTRALOOP_DISCORD_BOT_TOKEN). Never hardcode it.
 
-R5 — 봇 프로세스 수명/재연결
+R5 — bot process lifetime/reconnection
 ----------------------------
-이 스크립트는 **승인 1건당 단기 실행(short-lived)** 으로 동작한다: 메시지 올리고,
-결정 또는 TTL 까지만 살아 있다가 종료. 따라서 장수 데몬의 재연결/세션 만료
-관리 부담이 없다(단발 연결이라 reconnect 가 사실상 불필요).
-  대안: 길게 떠 있는 승인 데몬을 선호하면 assets/discord/gateway-bot.example.py
-  를 참고(영구 연결 + discord.py 내장 재연결). 그 경우 R5 는 discord.py 의
-  자동 reconnect 가 처리한다.
+This script runs **short-lived, one execution per approval**: it posts the
+message, stays alive until a decision or the TTL, then exits. So there is no
+long-lived-daemon burden of reconnects/session expiry (a one-shot connection
+makes reconnect practically unnecessary).
+  Alternative: if you prefer a long-running approval daemon, see
+  assets/discord/gateway-bot.example.py (permanent connection + discord.py
+  built-in reconnect). In that case R5 is handled by discord.py auto
+  reconnect.
 
 CLI
 ---
@@ -44,9 +48,9 @@ import sys
 import asyncio
 from pathlib import Path
 
-# ── config 로딩 (PyYAML 있으면 사용, 없으면 최소 파서) ──────────────────────
+# ── config loading (use PyYAML if present, else a minimal parser) ──────────────────────
 SCRIPT_DIR = Path(__file__).resolve().parent
-# 기본 config = 대상 레포 cwd(loop가 대상 레포에서 호출). 플러그인 루트가 아니다.
+# default config = target repo cwd (loop invokes from the target repo). Not the plugin root.
 CONFIG_PATH = Path(os.environ.get("ULTRALOOP_CONFIG") or (Path.cwd() / "ultraloop.config.yaml"))
 RESULT_DIR = Path(os.environ.get("TMPDIR", "/tmp")) / "ultraloop-approvals"
 
@@ -55,7 +59,7 @@ DEFAULT_TTL_MIN = 120
 
 
 def _load_discord_config() -> dict:
-    """config 의 discord: 블록만 dict 로 반환. PyYAML 우선, 없으면 평면 파서."""
+    """Return only the discord: block of the config as a dict. PyYAML first, else a flat parser."""
     if not CONFIG_PATH.exists():
         return {}
     text = CONFIG_PATH.read_text(encoding="utf-8")
@@ -65,7 +69,7 @@ def _load_discord_config() -> dict:
         return data.get("discord", {}) or {}
     except Exception:
         pass
-    # 최소 폴백 파서: discord: 블록의 한 단계 들여쓴 key: value 만 읽는다.
+    # minimal fallback parser: reads only one-level-indented key: value lines in the discord: block.
     out: dict = {}
     in_block = False
     for raw in text.splitlines():
@@ -74,7 +78,7 @@ def _load_discord_config() -> dict:
             continue
         if in_block:
             if raw and not raw[0].isspace():
-                break  # 블록 종료
+                break  # end of block
             line = raw.strip()
             if not line or line.startswith("#") or ":" not in line:
                 continue
@@ -106,7 +110,7 @@ async def run_approval(approval_id: str, question: str, risk: str, ttl_min: int)
     try:
         import discord  # type: ignore
     except ImportError:
-        print("discord.py 가 설치돼 있지 않습니다. 설치: pip install discord.py", file=sys.stderr)
+        print("discord.py is not installed. Install it: pip install discord.py", file=sys.stderr)
         return 3
 
     cfg = _load_discord_config()
@@ -116,10 +120,10 @@ async def run_approval(approval_id: str, question: str, risk: str, ttl_min: int)
     approvers = _coerce_ids(cfg.get("approver_user_ids", []))
 
     if not token:
-        print(f"토큰 환경변수 {token_env} 가 비어 있습니다.", file=sys.stderr)
+        print(f"Token environment variable {token_env} is empty.", file=sys.stderr)
         return 3
     if not channel_id:
-        print("discord.approval_channel_id 가 설정돼 있지 않습니다.", file=sys.stderr)
+        print("discord.approval_channel_id is not configured.", file=sys.stderr)
         return 3
 
     ttl_seconds = max(1, ttl_min) * 60
@@ -127,50 +131,50 @@ async def run_approval(approval_id: str, question: str, risk: str, ttl_min: int)
     decision_future: asyncio.Future = loop.create_future()
 
     intents = discord.Intents.none()
-    intents.guilds = True  # 채널 fetch + 컴포넌트 인터랙션 수신에 필요
+    intents.guilds = True  # needed to fetch the channel + receive component interactions
     client = discord.Client(intents=intents)
 
     class ApprovalView(discord.ui.View):
-        """[Y]/[N] 버튼 한 줄. custom_id 에 approval_id 를 담아 식별한다."""
+        """One row of [Y]/[N] buttons. custom_id carries the approval_id for identification."""
 
         def __init__(self) -> None:
             super().__init__(timeout=ttl_seconds)
 
         async def _authorized(self, interaction: "discord.Interaction") -> bool:
-            # approver_user_ids 가 비어 있으면(미설정) 누구도 승인 못 한다 — fail-closed 안전 기본값.
+            # if approver_user_ids is empty (unset), nobody can approve — fail-closed safe default.
             if (not approvers) or (str(interaction.user.id) not in approvers):
                 await interaction.response.send_message(
-                    "승인 권한이 없는 사용자입니다.", ephemeral=True
+                    "You are not authorized to approve.", ephemeral=True
                 )
                 return False
             return True
 
         async def _resolve(self, interaction, decision: str, label: str) -> None:
             reason = f"by {interaction.user} ({interaction.user.id})"
-            await interaction.response.send_message(f"{label} 처리되었습니다.", ephemeral=True)
+            await interaction.response.send_message(f"{label} processed.", ephemeral=True)
             if not decision_future.done():
                 decision_future.set_result((decision, reason))
             self.stop()
 
-        @discord.ui.button(label="[Y] 승인", style=discord.ButtonStyle.success,
+        @discord.ui.button(label="[Y] Approve", style=discord.ButtonStyle.success,
                            custom_id=f"approve:{approval_id}")
         async def approve(self, interaction, button):  # noqa: ANN001
             if await self._authorized(interaction):
-                await self._resolve(interaction, "Y", "승인")
+                await self._resolve(interaction, "Y", "Approval")
 
-        @discord.ui.button(label="[N] 거부", style=discord.ButtonStyle.danger,
+        @discord.ui.button(label="[N] Reject", style=discord.ButtonStyle.danger,
                            custom_id=f"reject:{approval_id}")
         async def reject(self, interaction, button):  # noqa: ANN001
             if await self._authorized(interaction):
-                await self._resolve(interaction, "N", "거부")
+                await self._resolve(interaction, "N", "Rejection")
 
     @client.event
     async def on_ready() -> None:  # noqa: ANN202
         try:
             channel = client.get_channel(int(channel_id)) or await client.fetch_channel(int(channel_id))
             embed = discord.Embed(
-                title=f"승인 요청 · {approval_id}",
-                description=f"{question}\n\n**risk:** `{risk}`\n**TTL:** {ttl_min}분",
+                title=f"Approval request · {approval_id}",
+                description=f"{question}\n\n**risk:** `{risk}`\n**TTL:** {ttl_min} min",
                 color=0x3498DB,
             )
             await channel.send(embed=embed, view=ApprovalView())
@@ -179,14 +183,14 @@ async def run_approval(approval_id: str, question: str, risk: str, ttl_min: int)
                 decision_future.set_exception(exc)
 
     async def driver() -> int:
-        # client.start 를 백그라운드로 돌리고, 결정/타임아웃을 경쟁시킨다.
+        # run client.start in the background and race the decision against the timeout.
         start_task = asyncio.create_task(client.start(token))
         try:
             try:
                 decision, reason = await asyncio.wait_for(decision_future, timeout=ttl_seconds)
             except asyncio.TimeoutError:
                 write_result(approval_id, "TIMEOUT", "no approver response within TTL")
-                print(f"[approve_bot] TTL({ttl_min}m) 초과 → hold", file=sys.stderr)
+                print(f"[approve_bot] TTL({ttl_min}m) exceeded → hold", file=sys.stderr)
                 return 4
             write_result(approval_id, decision, reason)
             print(f"[approve_bot] decision={decision} ({reason})", file=sys.stderr)

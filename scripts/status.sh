@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# status.sh [--refresh|--line] — loop 진행률(보드 Done 비율 + loop 횟수/경과)을 한 줄 막대로.
-#   --refresh : 보드(SoT)를 gh 로 집계해 status.json 캐시에 기록(느림 — loop ① 에서만 호출).
-#   --line    : status.json 을 읽어 한 줄 진척도 문자열 출력(graphql 안 함 — statusline/hook 용, 빠름). 기본.
-# 캐시 위치 = ue_state_dir/status.json (레포별, /tmp — git 무관). statusline 은 이 파일을 직접 읽어도 된다.
+# status.sh [--refresh|--line] — loop progress (board Done ratio + loop count/elapsed) as a one-line bar.
+#   --refresh : tallies the board (SoT) via gh and writes the status.json cache (slow — called only from loop ①).
+#   --line    : reads status.json and prints a one-line progress string (no graphql — for statusline/hook, fast). Default.
+# Cache location = ue_state_dir/status.json (per repo, /tmp — independent of git). The statusline may read this file directly.
 set -uo pipefail
 SDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SDIR/_lib.sh" 2>/dev/null || true
 STATE_DIR="$(ue_state_dir)"; SJ="$STATE_DIR/status.json"
 MODE="${1:---line}"
 
-_bar() {  # $1=pct $2=width → 진척 막대(채움 ▓ / 빈칸 ░)
+_bar() {  # $1=pct $2=width → progress bar (filled ▓ / empty ░)
   local p="${1:-0}" w="${2:-10}" n i s=""; p="${p%.*}"; [ -z "$p" ] && p=0
   n=$(( (p * w + 50) / 100 )); [ "$n" -gt "$w" ] && n=$w; [ "$n" -lt 0 ] && n=0
   i=0; while [ "$i" -lt "$w" ]; do [ "$i" -lt "$n" ] && s="$s▓" || s="$s░"; i=$((i+1)); done
@@ -39,17 +39,17 @@ print(done, len(items), prog, blk)' 2>/dev/null || echo "0 0 0 0")
   PCT=0; [ "$TOTAL" -gt 0 ] 2>/dev/null && PCT=$(( DONE * 100 / TOTAL ))
   printf '{"pct":%d,"done":%d,"total":%d,"in_progress":%d,"blocked":%d,"loops":%d,"elapsed_min":%d,"repo":"%s","ts":%d}\n' \
     "$PCT" "$DONE" "$TOTAL" "$PROG" "$BLK" "$LOOPS" "$ELAP" "$REPO" "$(date +%s)" > "$SJ" 2>/dev/null \
-    && ue_log "status.json 갱신: ${PCT}% (${DONE}/${TOTAL})" || ue_log "status.json 쓰기 실패"
+    && ue_log "status.json updated: ${PCT}% (${DONE}/${TOTAL})" || ue_log "status.json write failed — state dir may be missing or unwritable; check $STATE_DIR"
 fi
 
-# --line(기본): status.json → 한 줄(prefix 없음; 호출자가 '⟳ ultraloop' 등 붙임)
-[ -f "$SJ" ] || { echo "(보드 미집계)"; exit 0; }
+# --line (default): status.json → one line (no prefix; the caller prepends e.g. "⟳ ultraloop")
+[ -f "$SJ" ] || { echo "(board not yet tallied)"; exit 0; }
 vals="$(python3 -c '
 import json,sys
 try: d=json.load(open(sys.argv[1]))
 except Exception: sys.exit(1)
 print("%d %d %d %d %d %d %d"%(d.get("pct",0),d.get("done",0),d.get("total",0),d.get("in_progress",0),d.get("blocked",0),d.get("loops",0),d.get("elapsed_min",0)))
-' "$SJ" 2>/dev/null)" || { echo "(보드 미집계)"; exit 0; }
+' "$SJ" 2>/dev/null)" || { echo "(board not yet tallied)"; exit 0; }
 read -r PCT DONE TOTAL PROG BLK LOOPS EL <<<"$vals"
 EH=$(( ${EL:-0} / 60 )); EM=$(( ${EL:-0} % 60 ))
 LINE="[$(_bar "${PCT:-0}" 10)] ${PCT:-0}% · ${DONE:-0}/${TOTAL:-0}"

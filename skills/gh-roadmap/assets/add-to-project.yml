@@ -1,0 +1,24 @@
+# auto-add workflow — fills the one built-in workflow (auto-add) that the golden template cannot clone.
+#   Auto-adds new issues/PRs to the shared board (actions/add-to-project). Place in the repo .github/workflows/.
+# Setup:
+#   1) Issue a PAT (classic: repo+project / fine-grained: org projects read&write + repo issues:read)
+#   2) Register it as a repo secret: gh secret set ADD_TO_PROJECT_PAT -R <owner/repo> --body "<PAT>"
+#   3) Replace PROJECT_URL with the shared board URL (https://github.com/users|orgs/<owner>/projects/<number>)
+# ⚠️ runs-on: self-hosted — the ultraloop self-hosted principle. If not using ultraloop, ubuntu-latest is fine.
+name: Add to roadmap board
+on:
+  issues:
+    types: [opened, reopened, labeled]
+  pull_request:
+    types: [opened, reopened, labeled]
+jobs:
+  add-to-project:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/add-to-project@v1.0.2
+        with:
+          project-url: https://github.com/users/OWNER/projects/NUMBER   # ← replace
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+          # optional: only add items with specific labels
+          # labeled: roadmap, epic
+          # label-operator: OR

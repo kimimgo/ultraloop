@@ -1,24 +1,24 @@
-# TypeScript 룰
+# TypeScript rules
 
-`_base.md`와 함께 적용. 아래는 기본값 — 프로젝트 관례가 있으면 그쪽을 존중한다.
+Applied together with `_base.md`. Below are defaults — when the project has its own conventions, respect those.
 
-## 도구
+## Tools
 
 - **lint**: `eslint`
 - **type**: `tsc --noEmit` (tsconfig `strict: true`)
-- **test**: `vitest` 또는 `jest`
-- **패키지**: `pnpm` 우선
+- **test**: `vitest` or `jest`
+- **packaging**: `pnpm` first
 
-## 레이아웃
+## Layout
 
 ```
 package.json
 tsconfig.json          # "strict": true
 src/...
-tests/  (또는 *.test.ts 코로케이션 — 프로젝트 관례 따름)
+tests/  (or *.test.ts colocation — follow project convention)
 ```
 
-## package.json scripts (권장)
+## package.json scripts (recommended)
 
 ```jsonc
 {
@@ -26,23 +26,23 @@ tests/  (또는 *.test.ts 코로케이션 — 프로젝트 관례 따름)
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --coverage",
-    "build": "tsc -p tsconfig.build.json"  // 또는 vite/tsup 등
+    "build": "tsc -p tsconfig.build.json"  // or vite/tsup etc.
   }
 }
 ```
 
-## 명령 예시
+## Command examples
 
 ```bash
 pnpm install
 pnpm lint
 pnpm typecheck
-pnpm test          # 커버리지 목표: coverage_target (기본 80)
+pnpm test          # coverage target: coverage_target (default 80)
 pnpm build
 ```
 
-## 규약
+## Contract
 
-- `strict: true` 유지. `any` 남발 금지 — 불가피하면 주석으로 사유.
-- 신규 기능은 테스트 먼저(TDD). 커버리지 임계는 vitest/jest 설정에 `coverage_target`으로.
-- lock 파일(`pnpm-lock.yaml`) 커밋. 빌드 산출물(`dist/`)은 `.gitignore`.
+- Keep `strict: true`. No scattering `any` — when unavoidable, justify it with a comment.
+- New features start with tests (TDD). Set the coverage threshold as `coverage_target` in the vitest/jest config.
+- Commit the lock file (`pnpm-lock.yaml`). Build output (`dist/`) goes in `.gitignore`.

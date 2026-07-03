@@ -9,3 +9,4 @@ gh-roadmap.config.yaml
 .ue-worktrees/
 __pycache__/
 *.pyc
+.tokensave/

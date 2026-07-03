@@ -1,46 +1,54 @@
-# 프로덕션 E2E (Tier 2) — merge 전 게이트 + 캡쳐 + 무결성 (e2e-production) ★
+# Production E2E (Tier 2) — pre-merge gate + capture + integrity (e2e-production) ★
 
-Tier 1 assertion ≠ E2E. **Roadmap-Item·PR은 merge 전** Tier 2 통과 + 캡쳐 증거 없이는 Done/merge 불가.
-스크립트: `e2e_up.sh` → `e2e_run.sh` → `e2e_down.sh`. merge 게이트는 `ship_pr.sh`(E2E 실패 시 exit 6).
+Tier 1 assertions ≠ E2E. **A Roadmap-Item · PR cannot be Done/merged without passing Tier 2 pre-merge** with capture evidence.
+Scripts: `e2e_up.sh` → `e2e_run.sh` → `e2e_down.sh`. The merge gate is `ship_pr.sh` (exit 6 on E2E failure).
 
-## 1. up — 실배포, 레인 격리 (REQ-E2E-2)
-- `docker compose -p ue-<issue#> up`(우선) 또는 README **단일 명령 기동**(`runner: readme_command`).
-- **레인 격리**: 고유 compose project-name(`ue-<issue#>`) + **동적 포트 할당**(`config.e2e.base_port`부터) +
-  볼륨 격리 → 병렬 충돌 방지. 헬스 대기(`health_timeout_seconds`) → 시드.
-- 자격증명은 `.env.e2e`(`config.e2e.secrets_file`)에서 주입(§5).
+## 1. up — real deploy, lane isolation (REQ-E2E-2)
 
-## 2. run — 실제 구동, mock 금지 (REQ-E2E-3)
-사람처럼 구동해 관찰한다:
-- **웹 UI** = 브라우저 자동화 MCP 에이전트 주도(클릭/입력 + **스크린샷 + DOM 판독**, 관찰 기반).
-- **CLI/TUI** = **별도 셸 세션**에서 명령 시나리오(트랜스크립트 + exit code + 산출물).
-- **API** = 실제 HTTP + 스키마/부수효과 검증.
-- (필요 시) **수치** = 실솔버 수렴 + 허용오차.
-시나리오 템플릿 `assets/e2e/scenario.template.md`.
+- `docker compose -p ue-<issue#> up` (preferred) or the README **single-command startup** (`runner: readme_command`).
+- **Lane isolation**: unique compose project-name (`ue-<issue#>`) + **dynamic port allocation** (starting at `config.e2e.base_port`) +
+  volume isolation → prevents parallel collisions. Wait for health (`health_timeout_seconds`) → seed.
+- Credentials are injected from `.env.e2e` (`config.e2e.secrets_file`) (§5).
 
-## 3. 캡쳐 증거 + DLP (REQ-E2E-4)
-- `e2e/reports/<date>-<item>.md` 에 스텝·스크린샷·트랜스크립트·헬스·PASS/FAIL(`assets/e2e/report.template.md`).
-- **스크린샷은 압축/다운스케일해 파일당 < `config.e2e.screenshot_max_mb`(기본 2MB)**, 보고서엔 **링크/썸네일**
-  (원본 임베드 금지 — 사내 DLP).
-- 증거 경로를 **merge commit trailer + 보드 `E2E-Evidence` 필드**에 기록(squash 후에도 추적).
+## 2. run — real operation, no mocks (REQ-E2E-3)
 
-## 4. 시크릿 주입 (REQ-E2E-5)
-E2E 스택 자격증명 = `.env.e2e`(로컬 vault/GH Secrets에서 주입). **평문 커밋 금지**, teardown 시 폐기.
+Operate it like a human and observe:
+- **Web UI** = driven by a browser-automation MCP agent (click/type + **screenshots + DOM readout**, observation-based).
+- **CLI/TUI** = command scenarios in a **separate shell session** (transcript + exit codes + outputs).
+- **API** = real HTTP + schema/side-effect verification.
+- (When needed) **numerics** = real-solver convergence + tolerated error.
+Scenario template: `assets/e2e/scenario.template.md`.
 
-## 5. flake 처리 (REQ-E2E-6)
-실배포 E2E는 flaky하다. **일시 실패(포트·타임아웃·컨테이너 워밍업) = 백오프 재시도(≤ `config.e2e.flake_retries`,
-기본 3)**. 재시도 후에도 실패해야 **결정적 실패**로 보고 + strike. **flake는 strike 아님**(허위 에스컬레이션 방지).
-`e2e_run.sh` 가 일시/결정적 실패를 분류해 재시도한다.
+## 3. Capture evidence + DLP (REQ-E2E-4)
 
-## 6. down — 누수 방지 (REQ-E2E-7)
-레인 종료 시 `compose -p ue-<issue#> down -v`(§14 가드: `down -v` 볼륨 삭제는 고위험 → E2E 일회성 격리
-볼륨에 한해 허용) + **고아 컨테이너/볼륨/포트 회수**. **디스크 watchdog**: 임계 초과 시 `docker system prune`
-+ 알림(`e2e_down.sh`).
+- Record steps · screenshots · transcripts · health · PASS/FAIL in `e2e/reports/<date>-<item>.md` (`assets/e2e/report.template.md`).
+- **Compress/downscale screenshots to < `config.e2e.screenshot_max_mb` per file (default 2MB)**; in reports use **links/thumbnails**
+  (embedding originals is forbidden — internal DLP).
+- Record the evidence path in the **merge commit trailer + the board `E2E-Evidence` field** (traceable even after squash).
 
-## 7. 페이싱 (REQ-E2E-8)
-무거운 E2E는 loop 내 **로컬**, CI는 **경량 스모크**, 전체 회귀는 **nightly**(`assets/workflows/nightly-e2e.yml`).
+## 4. Secret injection (REQ-E2E-5)
 
-## §9.7 완료 무결성 안전장치 (비차단)
-- **수용기준 스냅샷 동결**: 기획 승인 시 항목별 수용기준·E2E 시나리오를 불변 기준선으로 저장.
-- **수정 diff 알림 + 감사 로그**: 에이전트의 시나리오 수정은 notify-only지만 기준선 대비 diff를 알림/감사.
-  **범위 축소/시나리오 약화는 명시**(차단 X, 가시성 O).
-- **결정적 assertion 병행**: 관찰 + 기계검증(HTTP 상태·DB 행수·파일 존재·exit code)을 함께 — 자기판단 단독 합격 축소.
+E2E-stack credentials = `.env.e2e` (injected from a local vault/GH Secrets). **Never commit plaintext**; discard at teardown.
+
+## 5. Flake handling (REQ-E2E-6)
+
+Real-deploy E2E is flaky. **Transient failures (ports · timeouts · container warm-up) = backoff retry (≤ `config.e2e.flake_retries`,
+default 3)**. Failing even after retries must be reported as a **deterministic failure** + strike. **A flake is NOT a strike** (prevents false escalation).
+`e2e_run.sh` classifies transient vs. deterministic failures and retries.
+
+## 6. down — leak prevention (REQ-E2E-7)
+
+On lane teardown, `compose -p ue-<issue#> down -v` (§14 guard: `down -v` volume deletion is high-risk → allowed only for
+E2E ephemeral isolation volumes) + **reclaim orphaned containers/volumes/ports**. **Disk watchdog**: `docker system prune`
++ notify when the threshold is exceeded (`e2e_down.sh`).
+
+## 7. Pacing (REQ-E2E-8)
+
+Heavy E2E runs **locally** inside the loop, CI runs a **lightweight smoke**, full regression runs **nightly** (`assets/workflows/nightly-e2e.yml`).
+
+## §9.7 Completion-integrity safeguards (non-blocking)
+
+- **Acceptance-criteria snapshot freeze**: at planning approval, save per-item acceptance criteria · E2E scenarios as an immutable baseline.
+- **Modification diff notification + audit log**: agent scenario edits are notify-only, but the diff vs. the baseline is notified/audited.
+  **Scope reduction / scenario weakening must be stated explicitly** (no blocking, full visibility).
+- **Deterministic assertions alongside**: observation + machine checks together (HTTP status · DB row counts · file existence · exit codes) — reduces pass-by-self-judgment alone.

@@ -1,0 +1,40 @@
+{
+  "description": "gh-roadmap board custom fields. roadmap_bootstrap.sh creates them idempotently on a fresh board (skips if already present). If the golden template is cloned with copyProjectV2 they are already there, so this passes idempotently. color is the GitHub single-select allowed enum: GRAY BLUE GREEN YELLOW ORANGE RED PINK PURPLE.",
+  "fields": [
+    {
+      "name": "Horizon",
+      "dataType": "SINGLE_SELECT",
+      "options": [
+        { "name": "Long-term", "color": "BLUE",   "description": "Initiative — top level, quarter/year scale" },
+        { "name": "Mid-term", "color": "GREEN",  "description": "Epic — month/sprint scale (sub-issue of a Long-term item)" },
+        { "name": "Short-term", "color": "YELLOW", "description": "Task — day/week scale (sub-issue of a Mid-term item)" }
+      ],
+      "note": "3-tier roadmap horizon. The hierarchy itself is expressed with native sub-issues; this field is for Roadmap view group/filter."
+    },
+    {
+      "name": "Start Date",
+      "dataType": "DATE",
+      "note": "Start of the Roadmap view bar. ★ Must be paired with Target Date (end) for a duration bar to be drawn — filling only Target Date shows just a dot/short bar (measured 2026-06-21). Both must be connected in the UI 'Set date fields' (date field connection is not possible via the API)."
+    },
+    {
+      "name": "Target Date",
+      "dataType": "DATE",
+      "note": "End of the bar in the Roadmap layout view — target ship date (BP#5 'Date field for target ship dates'). Forms a duration bar paired with Start Date. If cards have no dates the Roadmap view looks empty (common trap)."
+    },
+    {
+      "name": "Priority",
+      "dataType": "SINGLE_SELECT",
+      "options": [
+        { "name": "P0", "color": "RED" },
+        { "name": "P1", "color": "ORANGE" },
+        { "name": "P2", "color": "GRAY" }
+      ],
+      "note": "Optional. Priority grouping/sorting."
+    }
+  ],
+  "native_fields": {
+    "Status": "Already exists on the default board. roadmap_bootstrap does not align its options to config.status_options here (option additions are a short-term execution-column concern defined by a human in the template — the default Todo/In Progress/Done also works).",
+    "Milestone": "★ Native auto-synced field — Projects automatically reflects the issue milestone (BP#10). No custom creation needed. The board can group/filter by Milestone. Note milestones are repo-scoped (no cross-repo).",
+    "Iteration": "The ITERATION field is created only when config.iteration=true (BP#5 velocity planning). For cross-repo timeboxing use this field or Target Date (since milestones cannot cross repos)."
+  }
+}

@@ -1,32 +1,32 @@
 #!/usr/bin/env bash
-# _lib.sh — ultraloop 스크립트 공유 헬퍼. `source` 해서 쓴다.
-#   cfg_get <dotted.key> [default]   : ultraloop.config.yaml 값 읽기 (python3+yaml, 폴백 grep)
-#   skill_dir                         : 이 스킬 디렉토리 절대경로
-#   state_dir                         : 큐/하트비트/상태 파일 디렉토리(생성 보장)
-#   log <msg>                         : 타임스탬프 로그(stderr)
-# 의도적으로 얇게 — 결정적 동작만, 나머지는 호출자(에이전트)가 판단.
+# _lib.sh — shared helper for ultraloop scripts. Use via `source`.
+#   cfg_get <dotted.key> [default]   : read a value from ultraloop.config.yaml (python3+yaml, grep fallback)
+#   skill_dir                         : absolute path of this skill directory
+#   state_dir                         : directory for queue/heartbeat/state files (creation guaranteed)
+#   log <msg>                         : timestamped log (stderr)
+# Intentionally thin — deterministic behavior only; everything else is judged by the caller (the agent).
 
 ue_skill_dir() {
-  # 플러그인 런타임은 CLAUDE_PLUGIN_ROOT, 단독 스킬은 CLAUDE_SKILL_DIR. 둘 다 없으면 스크립트 위치로 도출.
+  # Plugin runtime uses CLAUDE_PLUGIN_ROOT, standalone skill uses CLAUDE_SKILL_DIR. If neither, derive from script location.
   local s="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR:-}}"
   if [ -z "$s" ]; then
-    # _lib.sh 는 scripts/ 안에 있으므로 부모가 플러그인/스킬 루트
+    # _lib.sh lives inside scripts/, so the parent is the plugin/skill root
     s="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
   fi
   printf '%s' "$s"
 }
 
 ue_config_path() {
-  # 명시 env 우선
+  # Explicit env takes priority
   if [ -n "${ULTRALOOP_CONFIG:-}" ]; then printf '%s' "$ULTRALOOP_CONFIG"; return; fi
-  # cwd부터 루트까지 거슬러 올라가며 탐색 — Stop 훅이 서브디렉토리 cwd에서 실행돼도
-  # repo 루트의 ultraloop.config.yaml 을 찾는다(미발견 시 cfg_get default 폴백 버그 방지).
+  # Walk upward from cwd to the root — so even when the Stop hook runs with a subdirectory cwd
+  # it still finds the repo-root ultraloop.config.yaml (prevents the cfg_get default-fallback bug when unfound).
   local d="$PWD"
   while [ -n "$d" ] && [ "$d" != "/" ]; do
     [ -f "$d/ultraloop.config.yaml" ] && { printf '%s' "$d/ultraloop.config.yaml"; return; }
     d="$(dirname "$d")"
   done
-  # 폴백: Claude Code가 주는 프로젝트 루트
+  # Fallback: the project root that Claude Code provides
   if [ -n "${CLAUDE_PROJECT_DIR:-}" ] && [ -f "$CLAUDE_PROJECT_DIR/ultraloop.config.yaml" ]; then
     printf '%s' "$CLAUDE_PROJECT_DIR/ultraloop.config.yaml"; return
   fi
@@ -34,14 +34,14 @@ ue_config_path() {
 }
 
 ue_state_dir() {
-  # 명시 env override 우선(그대로 사용).
+  # Explicit env override takes priority (used as-is).
   local base="${ULTRALOOP_STATE_DIR:-}"
   if [ -n "$base" ]; then
     mkdir -p "$base" 2>/dev/null || true
     printf '%s' "$base"; return
   fi
-  # 기본 = 레포별 서브디렉토리로 격리. loop-count·run-start·heartbeat·goal state·lock 이
-  # 전 루프 공유(/tmp/ultraloop)였어 동시 루프가 서로의 카운트/락을 덮어쓰던 충돌을 막는다.
+  # Default = isolate per repo in a subdirectory. loop-count/run-start/heartbeat/goal state/lock used to be
+  # shared across all loops (/tmp/ultraloop), so concurrent loops overwrote each other counters/locks — this prevents that collision.
   local root key
   root="$(dirname "$(ue_config_path)")"
   case "$root" in /*) ;; *) root="$(cd "$root" 2>/dev/null && pwd || printf '%s' "$PWD")";; esac
@@ -53,7 +53,7 @@ ue_state_dir() {
   printf '%s' "$d"
 }
 
-# cfg_get a.b.c [default] — config에서 점 표기 키를 읽는다.
+# cfg_get a.b.c [default] — read a dotted-notation key from config.
 cfg_get() {
   local key="$1" def="${2:-}" cfg
   cfg="$(ue_config_path)"
@@ -84,7 +84,7 @@ else:
     print(cur)
 PY
   else
-    # 폴백: 1단계 키만 대충(중첩은 미지원). 없으면 default.
+    # Fallback: rough match on the last key segment only (nesting unsupported). Default if absent.
     local last="${key##*.}"
     grep -E "^\s*${last}\s*:" "$cfg" 2>/dev/null | head -1 | sed -E 's/^[^:]*:\s*//; s/\s*$//; s/^["'\'']//; s/["'\'']$//' | grep . || printf '%s' "$def"
   fi
@@ -92,9 +92,20 @@ PY
 
 ue_log() { printf '[ultraloop %s] %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
 
-# repo owner/name 해석 (config.repo 또는 gh 현재 레포)
+# resolve repo owner/name (config.repo or current gh repo)
 ue_repo() {
   local r; r="$(cfg_get repo "")"
   if [ -n "$r" ]; then printf '%s' "$r"; return 0; fi
   gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true
+}
+
+# v0.10: run scope — engine.goal.scope: "board" (default, full-board completion) or
+# "milestone:<title>" (the run ends when that milestone is drained). Machine-level
+# counterpart of north-star.md §2 milestone goals: per-run goals become gate-enforceable.
+ue_goal_scope() {  # prints the milestone title, or "" for board scope
+  local s; s="$(cfg_get engine.goal.scope board)"
+  case "$s" in milestone:*) printf '%s' "${s#milestone:}";; *) : ;; esac
+}
+ue_scope_slug() {  # milestone title → filesystem-safe slug (for scoped markers)
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-' | sed -E 's/-+/-/g; s/^-|-$//g'
 }

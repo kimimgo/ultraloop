@@ -1,39 +1,39 @@
-# 알림 & 승인 — 비동기 큐 + 게이트웨이 봇 + 위험도 (notify-approval)
+# Notifications & approvals — async queue + gateway bot + risk levels (notify-approval)
 
-## 1. 비차단 알림 (REQ-NTF-1)
-일상 이벤트(loop 시작/종료·push·CI·E2E 캡쳐·보드/로드맵 수정·heartbeat)는 Discord 알림 후 **진행**.
-`bash ${CLAUDE_PLUGIN_ROOT}/scripts/notify.sh <level> "<title>" "<message>" [evidence_path]`. 알림 실패는 루프를
-죽이지 않는다(notify.sh exit 0 항상). 로드맵 수정은 **notify-only + §9.7 diff/감사 로그**(REQ-NTF-2).
+## 1. Non-blocking notifications (REQ-NTF-1)
+Routine events (loop start/end · push · CI · E2E capture · board/roadmap edits · heartbeat) notify Discord and then **proceed**.
+`bash ${CLAUDE_PLUGIN_ROOT}/scripts/notify.sh <level> "<title>" "<message>" [evidence_path]`. A notification failure never
+kills the loop (notify.sh always exits 0). Roadmap edits are **notify-only + §9.7 diff/audit log** (REQ-NTF-2).
 
-## 2. 비동기 승인 큐 (REQ-APR-1) — 결정
-고위험(§14)은 **승인 큐에 enqueue + 해당 레인 Parked**, **나머지 레인/독립 작업은 계속**. 루프 미정지.
+## 2. Async approval queue (REQ-APR-1) — decision
+High risk (§14) means **enqueue into the approval queue + Park that lane**, while **the other lanes/independent work continue**. The loop does not stop.
 ```bash
-approval_queue.sh enqueue <action> <risk> [ttl]   # 큐 적재 + 레인 park
-approval_queue.sh drain                            # ① 단계: 해결된 항목 unpark
+approval_queue.sh enqueue <action> <risk> [ttl]   # enqueue + park the lane
+approval_queue.sh drain                            # step ①: unpark resolved items
 ```
-큐는 파일 기반(`${TMPDIR:-/tmp}/ultraloop-approvals/`). exit 0=Y(진행) · 1=N(대안/이슈화) · 4=hold(TTL 무응답).
+The queue is file-based (`${TMPDIR:-/tmp}/ultraloop-approvals/`). exit 0=Y (proceed) · 1=N (alternative/turn into an issue) · 4=hold (no response within TTL).
 
-## 3. 수신 채널 — egress-only 호환 (REQ-APR-2)
-- **Discord 게이트웨이 봇(아웃바운드 WebSocket)** 으로 **[Y]/[N] 버튼 + 사유** 수신 — 인바운드 인그레스 불필요
-  (사내 DLP 호환). `scripts/approve_bot.py`(per-approval) 또는 `assets/discord/gateway-bot.example.py`(데몬).
-- 보조: 봇 폴링, **콘솔 모달**(`console_modal.sh`, 유인 시).
-- 응답: Y → unpark 진행 · N → 대안/이슈화.
+## 3. Receiving channels — egress-only compatible (REQ-APR-2)
+- A **Discord gateway bot (outbound WebSocket)** receives **[Y]/[N] buttons + reason** — no inbound ingress needed
+  (compatible with corporate DLP). `scripts/approve_bot.py` (per-approval) or `assets/discord/gateway-bot.example.py` (daemon).
+- Secondary: bot polling, **console modal** (`console_modal.sh`, when attended).
+- Response: Y → unpark and proceed · N → alternative/turn into an issue.
 
-## 4. hold-TTL 에스컬레이션 (REQ-APR-3)
-큐 항목이 `config.discord.approval_ttl_minutes`(기본 120) 초과 무응답이면 **자동진행 금지**. 대신:
-- **에스컬레이션**(반복 알림 격상), 그리고 가능하면 **defer**(해당 항목 후순위로 미루고 다른 항목 진행).
-- 막판 모든 항목이 큐에 막히면 종료 평가에 **"승인 대기로 미완"** 명시(`definition-of-done.md`).
+## 4. hold-TTL escalation (REQ-APR-3)
+If a queue item gets no response beyond `config.discord.approval_ttl_minutes` (default 120), **auto-proceed is forbidden**. Instead:
+- **Escalate** (raise the level of repeated notifications), and where possible **defer** (push that item back and proceed with other items).
+- If at the end every item is stuck in the queue, state **"incomplete pending approval"** in the completion evaluation (`definition-of-done.md`).
 
-## 5. 프로덕션 배포 (REQ-APR-4)
-**GitHub Environment 승인(권위)** + Discord 알림(대기 URL) 이중. `ci-cd-hitl.md` §5.
+## 5. Production deploys (REQ-APR-4)
+**GitHub Environment approval (the authority)** + Discord notification (pending URL), doubled. `ci-cd-hitl.md` §5.
 
-## 6. 감사 로그 (REQ-APR-5)
-모든 알림/승인(채널·응답자·Y/N·사유·시각)을 보드 항목/감사 로그에 기록.
+## 6. Audit log (REQ-APR-5)
+Record every notification/approval (channel · responder · Y/N · reason · time) on the board item/audit log.
 
-## 7. 위험도 분류 (§14)
-- **고위험 = 큐+park** (REQ-RISK-1): 프로덕션 배포 · history rewrite · 데이터/볼륨 삭제(`down -v`(E2E 격리
-  볼륨 제외)·db drop) · 대규모 파괴적 리팩터 · 의존성 **major** 업 · 시크릿/권한/결제 변경 ·
-  미커밋/미머지 worktree 제거 · 외부 비가역 작업.
-- **저위험 = 알림·진행** (REQ-RISK-2): 일반 커밋/푸시/PR/merge · 이슈·보드 업데이트 · 로드맵 수정 제안 ·
-  테스트 추가 · 룰팩 교정 · 로컬 E2E 비파괴 기동/정리 · 문서.
-- **모호하면 보수적 고위험**(careful, REQ-RISK-3).
+## 7. Risk classification (§14)
+- **High risk = queue + park** (REQ-RISK-1): production deploys · history rewrite · data/volume deletion (`down -v` (except E2E-isolated
+  volumes) · db drop) · large destructive refactors · **major** dependency bumps · secret/permission/billing changes ·
+  removal of uncommitted/unmerged worktrees · irreversible external actions.
+- **Low risk = notify and proceed** (REQ-RISK-2): normal commits/pushes/PRs/merges · issue and board updates · roadmap change proposals ·
+  adding tests · rulepack corrections · local non-destructive E2E startup/teardown · docs.
+- **When ambiguous, treat conservatively as high risk** (careful, REQ-RISK-3).

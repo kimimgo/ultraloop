@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <strong>v0.6.0</strong> &nbsp;·&nbsp; <code>/ultraloop:design</code> &nbsp;·&nbsp; <code>/ultraloop:pm</code> &nbsp;·&nbsp; <code>/ultraloop:loop</code>
+  <strong>v0.10.0</strong> &nbsp;·&nbsp; <code>/ultraloop:design</code> &nbsp;·&nbsp; <code>/ultraloop:pm</code> &nbsp;·&nbsp; <code>/ultraloop:loop</code>
 </p>
 
 ---
@@ -50,8 +50,9 @@ Neither can do the other's job — the separation is enforced at the tool-permis
 - **Faithful board** — `loop` moves each card through `In Progress → Done` and logs decisions,
   blockers, and results as it goes. Board/issue/PR/commit text is written in plain product language —
   it never names a tool, agent, or automation.
-- **Hard safety rails** — per-repo state isolation, iteration/token/wall-clock budgets, a
-  dead-man's-switch, a stall guard, fail-open hooks, and no recursive session spawning.
+- **Hard safety rails** — per-repo state isolation, loop/iteration/wall-clock budgets, a
+  dead-man's-switch, a stall guard, fail-open hooks, and a hard guard against recursive
+  session spawning (workers are marked and refused at the script layer).
 
 ## Philosophy
 
@@ -79,14 +80,15 @@ specialist skill and falls back to a built-in path if that skill isn't installed
 
 | Skill | Role |
 | --- | --- |
-| **gh-roadmap** *(required)* | Board structure & setup authority — board, fields, views, Roadmap layout, built-in workflows, multi-repo. |
+| **gh-roadmap** *(bundled since v0.9.0)* | Board structure & setup authority — board, fields, views, Roadmap layout, built-in workflows, multi-repo. Ships inside this plugin (`skills/gh-roadmap/`) — no separate install; a local copy at `~/.claude/skills/gh-roadmap` takes precedence if present. |
 | product-strategy / outcome-roadmap / strategy-red-team / prioritization-frameworks | The PM chain — strategy, outcome framing, assumption red-teaming, prioritization. |
 | speckit | Spec authoring. |
 | tdd-workflow | Test-driven Red → Green → Refactor. |
 | gan-* | Optional quality harnesses. |
-| gstack-qa / gstack-review / gstack-investigate / gstack-ship | Verify, review, and deploy (encouraged). |
+| **gstack lane** *(entirely optional)* | If the [gstack](https://github.com/gstackio) skill suite is installed, ultraloop calls it at mapped steps — office-hours/autoplan/spec in planning, design-consultation/shotgun/review in design, investigate/qa-only/review in the loop, health/retro at milestone close, canary post-deploy. Every entry degrades to a built-in path; **merge/deploy authority never leaves ultraloop** (gstack drafts, ultraloop scripts execute). No gstack? Nothing breaks — the probe prints one summary line and moves on. |
 
-Call if present, fall back if absent. (details: `references/dependencies.md`)
+Call if present, fall back if absent — loudly, never silently. (full registry with modes,
+evidence contracts, and invocation policies: `references/dependencies.md`)
 
 ## How the loop works
 
@@ -203,14 +205,29 @@ ultraloop/
 │   ├── plugin.json          # registers all three skills
 │   └── marketplace.json     # this repo as a Claude Code marketplace
 ├── skills/
-│   ├── design/SKILL.md      # craft UI/UX to a verified score → hand DESIGN.md to pm
-│   ├── pm/SKILL.md          # plan → write the board
-│   └── loop/SKILL.md        # read the board → TDD + E2E → ship
+│   ├── design/SKILL.md      # craft UI/UX to a verified score → hand DESIGN.md + FLOW.md to pm
+│   ├── pm/SKILL.md          # plan deeply (north star → milestone goals) → write the board
+│   ├── loop/SKILL.md        # read the board → TDD + E2E → ship
+│   └── gh-roadmap/          # bundled board authority (Projects v2 structure & setup)
 ├── references/              # progressive-disclosure docs (loop, E2E, DoD, multi-repo, …)
 ├── scripts/                 # the engine: roadmap sync, board I/O, worktrees, cost guard, …
 ├── assets/                  # hooks (goal gate), CI workflows, templates
 └── config.example.yaml      # per-repo config (copy to your target repo root)
 ```
+
+## Prerequisites
+
+Installing the plugin takes a minute; a *complete* loop needs three pieces of GitHub
+infrastructure. Each is checked loudly at bootstrap — nothing fails silently:
+
+| What | Why | Cost |
+|---|---|---|
+| **Project-scope token** — a PAT (classic) with `project` scope, exported as `UE_PROJECT_TOKEN` | the default `GITHUB_TOKEN` cannot write GitHub Projects v2 boards | 2 min — <https://github.com/settings/tokens> → `project` scope |
+| **Self-hosted runner** on the target repo | CI gates assume a runner you control (hosted-runner minutes burn fast in an overnight loop) | ~15 min — <https://docs.github.com/en/actions/hosting-your-own-runners> |
+| **Golden template board** *(optional)* | views, the Roadmap layout, and built-in workflows cannot be created via API — a copied template is the only automation | ~20 min once, reused forever; skip it and you get a functional fresh board without the Roadmap views (`skills/gh-roadmap/references/golden-template-setup.md`) |
+
+Discord notifications and the approval bot are optional; the console approval queue is the
+zero-infra fallback.
 
 ## Quickstart
 
@@ -220,13 +237,18 @@ ultraloop/
 /plugin install ultraloop@ultraloop
 
 # 2. In your target repo, drop a config at the repo root
-cp path/to/ultraloop/config.example.yaml ./ultraloop.config.yaml
+#    (installed plugin lives under ~/.claude/plugins/cache/ultraloop/…, or just let
+#     /ultraloop:pm seed it — bootstrap copies the example on first run)
+cp ~/.claude/plugins/cache/ultraloop/ultraloop/*/config.example.yaml ./ultraloop.config.yaml 2>/dev/null \
+  || echo "skip — /ultraloop:pm will seed it"
 #    edit `repo:` and the mission, leave the rest on `auto`
 
-# 3. Design (optional, runs first) — craft UI/UX to a verified score, hand off DESIGN.md
+# 3. Design (optional, runs first) — UX flows before screens, machine-audited details,
+#    cold task-walkthroughs, iterate to a verified score → hand off DESIGN.md + FLOW.md
 /ultraloop:design
 
-# 4. Plan — fills the board with milestones, cards, acceptance criteria
+# 4. Plan — north star & per-milestone goals first, then milestones, cards (each with a
+#    goal-link line), acceptance criteria
 /ultraloop:pm
 
 # 5. Loop — reads the approved board and ships it, autonomously
@@ -242,8 +264,14 @@ cp path/to/ultraloop/config.example.yaml ./ultraloop.config.yaml
 
 ultraloop is designed to run unattended for hours, so every loop is bounded:
 
-- **Budgets** — `max_loops`, `max_wall_clock_hours`, `max_tokens`; reaching any one stops the loop and
-  reports *why it is unfinished* rather than churning.
+- **Budgets** — `max_loops` and `max_wall_clock_hours` are enforced deterministically; reaching one
+  stops the loop and reports *why it is unfinished* rather than churning. (`max_tokens` is a reserved
+  field — token accounting is delegated to the session harness's own limits.) A completed run resets
+  its counters automatically; starting a fresh run after a budget-stop uses `cost_guard.sh --reset`.
+- **Run scope** — `engine.goal.scope: "milestone:<title>"` makes a run end when THAT milestone is
+  drained instead of the whole board: the goal gate counts only its issues, the loop is handed only
+  its Ready cards, and the deploy marker is per-milestone. Per-run goals (north-star milestone
+  verdict questions) get a machine-enforced counterpart. Default `"board"` keeps classic semantics.
 - **Stall guard** — if the same blocker repeats N times with zero board progress, it escalates for a
   human instead of busy-looping.
 - **Per-repo state** — loop counters, locks, and goal state are namespaced per repository, so

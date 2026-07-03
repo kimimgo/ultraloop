@@ -1,19 +1,19 @@
 # CLAUDE.md
 
-> 이 레포는 **ultraloop**(자율 엔지니어링 루프)로 구동된다.
-> 진행 상태의 SoT는 GitHub Projects 보드다. `PROGRESS.md`는 보드에서 재생성되는 읽기전용 뷰이니 직접 편집하지 말 것.
+> This repo is driven by **ultraloop** (an autonomous engineering loop).
+> The SoT for progress state is the GitHub Projects board. `PROGRESS.md` is a read-only view regenerated from the board — do not edit it directly.
 
-## 핵심 규약
+## Core contract
 
-- **이슈 우선**: 모든 작업은 보드의 이슈(카드)에서 시작한다. 이슈 없는 변경 금지.
-- **원자 커밋**: 한 커밋 = 하나의 논리적 변경. 메시지 `type: 요약 (#이슈)`. 빌드/테스트 통과 상태로 커밋.
-- **TDD**: 신규 기능/버그는 테스트 먼저. 커버리지 목표는 `coverage_target`(기본 80).
-- **merge 전 E2E**: PR은 E2E PASS 증거가 있어야 merge. 스크린샷은 링크/썸네일(<2MB), 결정적 assertion 병행.
-- **추적성**: 변경 라인 ↔ 이슈 ↔ PR(`Closes #`)이 연결돼야 한다.
-- **단일 명령 기동**: 전체 스택은 README의 단일 명령으로 떠야 하고, E2E `up`이 그 명령을 그대로 부른다.
-- **시크릿 미커밋**: `.env`/키/토큰 커밋 금지. 예시는 `.env.example`.
+- **Issues first**: every piece of work starts from an issue (card) on the board. No changes without an issue.
+- **Atomic commits**: one commit = one logical change. Message `type: summary (#issue)`, written in the product's working language. Commit only in a build/test-passing state.
+- **TDD**: new features/bugs get tests first. Coverage target is `coverage_target` (default 80).
+- **E2E before merge**: a PR merges only with E2E PASS evidence. Screenshots as links/thumbnails (<2MB), alongside deterministic assertions.
+- **Traceability**: changed lines ↔ issue ↔ PR (`Closes #`) must stay linked.
+- **Single-command startup**: the whole stack must come up with the single command in the README, and E2E `up` calls that command as-is.
+- **No secret commits**: committing `.env`/keys/tokens is forbidden. Examples go in `.env.example`.
 
-## 룰팩
+## Rulepacks
 
-스택별 품질 기준(lint/type/레이아웃/README)은 ultraloop 룰팩을 따른다:
-`${CLAUDE_PLUGIN_ROOT}/references/rules/` (`_base.md` + 감지된 스택 룰).
+Per-stack quality standards (lint/type/layout/README) follow the ultraloop rulepacks:
+`${CLAUDE_PLUGIN_ROOT}/references/rules/` (`_base.md` + the detected stack rules).

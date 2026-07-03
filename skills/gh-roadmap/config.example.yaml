@@ -1,0 +1,30 @@
+# ─────────────────────────────────────────────────────────────────────────
+#  gh-roadmap.config.yaml — copy to your working root and fill in the values.
+#    cp ${CLAUDE_SKILL_DIR}/config.example.yaml ./gh-roadmap.config.yaml
+#  The skill assumes one shared board across multiple repos (for a single repo, put one entry in repos).
+# ─────────────────────────────────────────────────────────────────────────
+
+board:
+  title: ""                 # Shared board title. If empty, "<owner> Roadmap". Idempotency key (query-then-create by title).
+  owner: ""                 # user/org login that owns the board. If empty, the owner of repos[0].
+  project_node_id: ""       # Written by roadmap_bootstrap.sh (idempotent). Do not touch.
+  project_number: ""        # Same (the number humans see)
+  # ★ Golden template — views (roadmap layout · WIP), Insights, and workflows cannot be 'created' via the API (GitHub limitation).
+  #   If a human builds one template board in the UI (references/golden-template-setup.md),
+  #   bootstrap clones it wholesale with copyProjectV2 (only the auto-add workflow is excluded from the clone → assets/add-to-project.yml).
+  template_node_id: ""      # Golden template board node id. If empty, fresh createProjectV2 (no views/Insights).
+  token_env: ""             # Env var name for the board token. If empty, the default gh token (needs project+repo scopes).
+
+# ── Repo(s) to link to the board — one shared board across multiple repos (BP#9) ──────────────────
+repos: []                   # e.g.: ["kimimgo/ocms-control-plane", "kimimgo/ocms-landing"]
+
+# ── 3-tier roadmap horizons (long → mid → short term) — native sub-issue hierarchy ───────
+#   Options of the Horizon single-select field. Together with bar length (Target Date) they make up the Roadmap view.
+horizons: ["Long-term", "Mid-term", "Short-term"]   # Long-term=Initiative / Mid-term=Epic / Short-term=Task
+
+# ── Status options (short-term execution columns). The GitHub default board is Todo/In Progress/Done. ──
+status_options: ["Backlog", "Ready", "In-Progress", "In-Review", "E2E", "Done", "Blocked", "Parked"]
+ready_status: "Ready"       # Option name meaning "ready to start" (read by consumers such as ultraloop). On a default board it is "Todo".
+
+iteration: false            # If true, create an ITERATION field (weekly/velocity planning, BP#5).
+auto_add: false             # If true, bootstrap points to assets/add-to-project.yml (install the workflow in the repo).

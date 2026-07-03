@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# meta_sync.sh — N레포 메타 루프의 결정적 코어 (multi-repo-orchestration.md §4 ①)
-#   assign    : 레포별 배정 가능 이슈(Ready상태 + blocked 라벨 없음 + depends_on 전부 충족) JSON lines.
-#               교차 레포 Depends-on 게이트가 여기 산다 — 의존 토큰(O5, C3, CP-HB...)을 "보드 카드 제목의
-#               선두 코드"로 해석하므로 레포 경계 무관. 해석 불가 토큰 = 미충족(안전 기본값).
-#   rollup    : 레포별 섹션 + 전체 롤업 markdown (PROGRESS에 붙임).
-#   reconcile : 이슈 상태 ⇄ 보드 카드 멱등 수렴(dan323/easier-life-skills gh-project-sync의 reconciler
-#               패턴 차용, tasks.yml 미러는 SoT 위반이라 배제) — CLOSED인데 카드≠Done → Done으로 수렴(자동),
-#               Done인데 이슈 OPEN → 경고만(이슈 close는 판단 필요·자동 금지). --dry-run 지원.
-#   self-test : 네트워크 0 — 인메모리 픽스처를 UE_RAW로 주입해 assign/reconcile의 *실제 코드 경로*를 검증.
+# meta_sync.sh — deterministic core of the N-repo meta loop (multi-repo-orchestration.md §4 ①)
+#   assign    : JSON lines of assignable issues per repo (Ready status + no blocked label + all depends_on met).
+#               The cross-repo Depends-on gate lives here — dependency tokens (O5, C3, CP-HB...) are resolved as
+#               "leading codes in board card titles", so repo boundaries do not matter. Unresolvable token = unmet (safe default).
+#   rollup    : per-repo sections + overall rollup markdown (appended to PROGRESS).
+#   reconcile : idempotent convergence of issue state ⇄ board card (borrows the reconciler pattern of
+#               dan323/easier-life-skills gh-project-sync; a tasks.yml mirror violates SoT so it is excluded) —
+#               CLOSED but card≠Done → converge to Done (automatic), Done but issue OPEN → warn only
+#               (closing the issue needs judgment; auto close forbidden). Supports --dry-run.
+#   self-test : zero network — injects an in-memory fixture via UE_RAW to verify the *actual code paths* of assign/reconcile.
 # usage:
 #   meta_sync.sh assign [--verbose] | rollup | reconcile [--dry-run] | self-test
-# exit 0=ok · 1=self-test 실패 · 3=보드 미설정 · 5=API 실패
+# exit 0=ok · 1=self-test failed · 3=board not configured · 5=API failure
 set -uo pipefail
 SDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SDIR/_lib.sh" 2>/dev/null || true
@@ -18,7 +19,7 @@ MODE="${1:-assign}"; FLAG="${2:-}"
 READY="$(cfg_get roadmap.ready_status Ready)"
 
 if [ "$MODE" = "self-test" ]; then
-  # ── 픽스처(가짜 보드) → 자기 자신을 UE_RAW_OVERRIDE로 재호출 → 실제 경로 검증 ──
+  # ── fixture (fake board) → re-invoke self with UE_RAW_OVERRIDE → verify real paths ──
   FIX='{"data":{"node":{"items":{"nodes":[
     {"content":{"number":1,"title":"A1 done base","state":"CLOSED","body":"depends_on: —","url":"u1","repository":{"nameWithOwner":"o/r"},"labels":{"nodes":[]}},"fieldValues":{"nodes":[{"name":"Done","field":{"name":"Status"}}]}},
     {"content":{"number":2,"title":"B1 ready free","state":"OPEN","body":"depends_on: —","url":"u2","repository":{"nameWithOwner":"o/r"},"labels":{"nodes":[]}},"fieldValues":{"nodes":[{"name":"Todo","field":{"name":"Status"}}]}},
@@ -32,38 +33,38 @@ if [ "$MODE" = "self-test" ]; then
   ]}}}}'
   A="$(UE_RAW_OVERRIDE="$FIX" UE_READY_OVERRIDE=Todo bash "${BASH_SOURCE[0]}" assign 2>/dev/null \
       | python3 -c 'import json,sys; print(sorted(json.loads(l)["number"] for l in sys.stdin))')"
-  R="$(UE_RAW_OVERRIDE="$FIX" bash "${BASH_SOURCE[0]}" reconcile --dry-run 2>&1)"   # WARN은 stderr 설계 — 합쳐 캡처
+  R="$(UE_RAW_OVERRIDE="$FIX" bash "${BASH_SOURCE[0]}" reconcile --dry-run 2>&1)"   # WARN goes to stderr by design — capture combined
   ok=0; fail=0
-  [ "$A" = "[2, 3, 9]" ] && { echo "✓ assign = #2,#3,#9 (free+제목dep충족+네이티브dep충족; gated/blocked/done/native-blocked 제외)"; ok=$((ok+1)); } \
-    || { echo "✗ assign 기대 [2, 3, 9], 실제 $A"; fail=$((fail+1)); }
+  [ "$A" = "[2, 3, 9]" ] && { echo "✓ assign = #2,#3,#9 (free + title-dep met + native-dep met; gated/blocked/done/native-blocked excluded)"; ok=$((ok+1)); } \
+    || { echo "✗ assign expected [2, 3, 9], got $A"; fail=$((fail+1)); }
   printf '%s' "$R" | grep -q "SET_DONE u6" && { echo "✓ reconcile: CLOSED+Todo → SET_DONE"; ok=$((ok+1)); } \
-    || { echo "✗ reconcile SET_DONE u6 누락: $R"; fail=$((fail+1)); }
-  printf '%s' "$R" | grep -q "WARN.*#7" && { echo "✓ reconcile: Done+OPEN → 경고만(자동 close 금지)"; ok=$((ok+1)); } \
-    || { echo "✗ reconcile #7 경고 누락"; fail=$((fail+1)); }
-  printf '%s' "$R" | grep -q "SET_DONE u1" && { echo "✗ 멱등 위반: 이미 Done인 u1 재수렴"; fail=$((fail+1)); } \
-    || { echo "✓ reconcile 멱등: 이미 Done은 무시"; ok=$((ok+1)); }
+    || { echo "✗ reconcile SET_DONE u6 missing: $R"; fail=$((fail+1)); }
+  printf '%s' "$R" | grep -q "WARN.*#7" && { echo "✓ reconcile: Done+OPEN → warn only (auto close forbidden)"; ok=$((ok+1)); } \
+    || { echo "✗ reconcile #7 warning missing"; fail=$((fail+1)); }
+  printf '%s' "$R" | grep -q "SET_DONE u1" && { echo "✗ idempotency violation: u1 already Done was reconverged"; fail=$((fail+1)); } \
+    || { echo "✓ reconcile idempotent: already-Done is ignored"; ok=$((ok+1)); }
   echo "self-test: $ok pass / $fail fail"; [ "$fail" = 0 ] || exit 1; exit 0
 fi
 
-# ── 보드 읽기 (self-test가 UE_RAW_OVERRIDE로 우회 주입) ─────────────────────
+# ── read the board (self-test bypasses by injecting UE_RAW_OVERRIDE) ─────────────────
 [ -n "${UE_READY_OVERRIDE:-}" ] && READY="$UE_READY_OVERRIDE"
 if [ -n "${UE_RAW_OVERRIDE:-}" ]; then RAW="$UE_RAW_OVERRIDE"; else
   PNODE="$(cfg_get roadmap.project_node_id "")"
   TOKEN_ENV="$(cfg_get roadmap.token_env UE_PROJECT_TOKEN)"
-  [ -n "$PNODE" ] || { ue_log "roadmap.project_node_id 미설정"; exit 3; }
-  # --paginate + $endCursor/pageInfo: 100+ 카드 보드도 전부 읽는다(누락 방지). 출력=페이지별 JSON 연결.
+  [ -n "$PNODE" ] || { ue_log "roadmap.project_node_id not set"; exit 3; }
+  # --paginate + $endCursor/pageInfo: reads boards with 100+ cards in full (prevents omissions). Output = concatenated per-page JSON.
   RAW="$(GH_TOKEN="${!TOKEN_ENV:-${GH_TOKEN:-}}" gh api graphql --paginate -f query='query($id:ID!,$endCursor:String){ node(id:$id){ ... on ProjectV2 { items(first:100, after:$endCursor){ pageInfo{ hasNextPage endCursor } nodes {
       content{ ... on Issue { number title state body url repository{ nameWithOwner } labels(first:20){ nodes{ name } } blockedBy(first:20){ nodes{ number state } } } }
       fieldValues(first:20){ nodes{ ... on ProjectV2ItemFieldSingleSelectValue { name field{ ... on ProjectV2FieldCommon { name } } } } } } } } } }' \
-      -f id="$PNODE" 2>/tmp/ue_ms.err)" || { ue_log "보드 graphql 실패: $(head -1 /tmp/ue_ms.err)"; exit 5; }
+      -f id="$PNODE" 2>/tmp/ue_ms.err)" || { ue_log "board graphql failed: $(head -1 /tmp/ue_ms.err)"; exit 5; }
 fi
 
-# ⚠️ 파이프+heredoc 동시 사용 금지 — heredoc이 stdin(스크립트)을 차지해 데이터가 유실된다. env로 전달.
+# ⚠️ Never combine a pipe with a heredoc — the heredoc takes over stdin (the script) and data is lost. Pass via env.
 OUT="$(UE_RAW="$RAW" python3 - "$MODE" "$READY" "$FLAG" <<'PY'
 import json, re, sys, os, collections
 mode, ready, flag = sys.argv[1], sys.argv[2].lower(), sys.argv[3]
 def _all_nodes(raw):
-    # --paginate 출력은 페이지별 JSON이 연결돼 올 수 있다(단일 페이지·self-test 단일 JSON도 동일 처리).
+    # --paginate output may arrive as concatenated per-page JSON (single page and the self-test single JSON are handled the same).
     dec = json.JSONDecoder(); i = 0; out = []; raw = raw.strip()
     while i < len(raw):
         obj, i = dec.raw_decode(raw, i)
@@ -96,54 +97,54 @@ def deps_of(card):
 def dep_ok(tok):
     m = re.match(r"^\[?([A-Z][A-Z0-9-]{0,15})\b", tok)
     if m and m.group(1) in by_code: return done(by_code[m.group(1)]), m.group(1)
-    return False, tok[:30]  # 해석 불가(외부 게이트 등) = 미충족
+    return False, tok[:30]  # unresolvable (external gate etc.) = unmet
 
 if mode == "assign":
     for card in cards:
         if card["state"] != "OPEN" or card["status"].lower() != ready: continue
         if "blocked" in card["labels"]:
-            if flag == "--verbose": print(f"GATED {card['repo']}#{card['number']} — blocked 라벨", file=sys.stderr)
+            if flag == "--verbose": print(f"GATED {card['repo']}#{card['number']} — blocked label", file=sys.stderr)
             continue
         unmet = [name for ok, name in (dep_ok(t) for t in deps_of(card)) if not ok]
-        native = [f"#{b['number']}" for b in card["blocked_by"] if b.get("state") != "CLOSED"]  # 네이티브 blocked-by(gh-roadmap) — blocker가 CLOSED여야 충족
+        native = [f"#{b['number']}" for b in card["blocked_by"] if b.get("state") != "CLOSED"]  # native blocked-by (gh-roadmap) — met only when the blocker is CLOSED
         if unmet or native:
-            if flag == "--verbose": print(f"GATED {card['repo']}#{card['number']} — 미충족 의존: {', '.join(unmet + native)}", file=sys.stderr)
+            if flag == "--verbose": print(f"GATED {card['repo']}#{card['number']} — unmet deps: {', '.join(unmet + native)}", file=sys.stderr)
             continue
         print(json.dumps({"repo": card["repo"], "number": card["number"],
                           "title": card["title"], "stage": card["stage"]}, ensure_ascii=False))
 elif mode == "reconcile":
-    # 멱등 수렴 계획: CLOSED인데 카드≠Done → SET_DONE(자동 적용 대상). Done인데 OPEN → 경고만.
+    # Idempotent convergence plan: CLOSED but card≠Done → SET_DONE (auto-apply target). Done but OPEN → warn only.
     for card in cards:
         if card["state"] == "CLOSED" and card["status"] != "Done":
             print(f"SET_DONE {card['url']}")
         elif card["status"] == "Done" and card["state"] == "OPEN":
-            print(f"WARN 카드 Done인데 이슈 OPEN — {card['repo']}#{card['number']} (이슈 close는 수동 판단)", file=sys.stderr)
+            print(f"WARN card Done but issue OPEN — {card['repo']}#{card['number']} (issue close is a manual call)", file=sys.stderr)
         elif "blocked" in card["labels"] and card["status"] == "In-Progress":
-            print(f"WARN blocked 라벨인데 In-Progress — {card['repo']}#{card['number']}", file=sys.stderr)
+            print(f"WARN blocked label but In-Progress — {card['repo']}#{card['number']}", file=sys.stderr)
 elif mode == "rollup":
     by_repo = collections.defaultdict(list)
     for card in cards: by_repo[card["repo"]].append(card)
-    print(f"## N레포 롤업 (공유 보드 · 총 {len(cards)}카드)\n")
+    print(f"## N-repo rollup (shared board · {len(cards)} cards total)\n")
     for repo in sorted(by_repo):
         cs = by_repo[repo]
-        st = collections.Counter((c["status"] or "(미설정)") for c in cs)
+        st = collections.Counter((c["status"] or "(unset)") for c in cs)
         blocked = sum(1 for c in cs if "blocked" in c["labels"])
         line = " · ".join(f"{k} {v}" for k, v in sorted(st.items()))
-        print(f"### {repo} — {len(cs)}카드\n- 상태: {line}" + (f" · 🔒blocked {blocked}" if blocked else ""))
+        print(f"### {repo} — {len(cs)} cards\n- status: {line}" + (f" · 🔒blocked {blocked}" if blocked else ""))
         for c in cs:
             if c["status"] == "In-Progress": print(f"  - ▶ #{c['number']} {c['title'][:60]}")
         print()
-    total = collections.Counter((c["status"] or "(미설정)") for c in cards)
-    print("**전체**: " + " · ".join(f"{k} {v}" for k, v in sorted(total.items())))
+    total = collections.Counter((c["status"] or "(unset)") for c in cards)
+    print("**Total**: " + " · ".join(f"{k} {v}" for k, v in sorted(total.items())))
 PY
 )" || exit $?
 
 if [ "$MODE" = "reconcile" ] && [ "$FLAG" != "--dry-run" ] && [ -z "${UE_RAW_OVERRIDE:-}" ]; then
-  # 수렴 적용 — board.sh 재사용(쓰기 경로 단일화)
+  # Apply convergence — reuse board.sh (single write path)
   printf '%s\n' "$OUT" | while read -r ACT URL; do
     [ "$ACT" = "SET_DONE" ] && [ -n "$URL" ] && bash "$SDIR/board.sh" status "$URL" Done
   done
-  N=$(printf '%s\n' "$OUT" | grep -c "^SET_DONE" || true); ue_log "reconcile: ${N:-0}건 Done 수렴"
+  N=$(printf '%s\n' "$OUT" | grep -c "^SET_DONE" || true); ue_log "reconcile: ${N:-0} items converged to Done"
 else
   printf '%s\n' "$OUT"
 fi

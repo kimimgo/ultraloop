@@ -1,5 +1,5 @@
 {
-  "description": "GitHub Projects v2 보드 필드 정의. 부트스트랩이 멱등 생성에 참조한다(이미 있으면 건너뜀). 보드가 진행 상태의 SoT(Source of Truth)이며, PROGRESS.md는 이 보드에서 재생성되는 읽기전용 뷰다.",
+  "description": "GitHub Projects v2 board field definitions. Bootstrap references this for idempotent creation (skips fields that already exist). The board is the source of truth (SoT) for progress status, and PROGRESS.md is a read-only view regenerated from this board.",
   "fields": [
     {
       "name": "Status",
@@ -19,33 +19,33 @@
     {
       "name": "Roadmap-Item",
       "dataType": "TEXT",
-      "note": "이 카드가 속한 Epic/로드맵 항목 식별자"
+      "note": "Identifier of the Epic/roadmap item this card belongs to"
     },
     {
       "name": "Depends-on",
       "dataType": "TEXT",
-      "note": "선행 이슈 번호(들). 예: #12, #15"
+      "note": "Preceding issue number(s). e.g. #12, #15"
     },
     {
       "name": "E2E-Evidence",
       "dataType": "TEXT",
-      "note": "E2E 증거 경로/URL. 스크린샷 원본 임베드 금지(<2MB 링크/썸네일)"
+      "note": "E2E evidence path/URL. No original screenshot embeds (<2MB links/thumbnails)"
     },
     {
       "name": "Horizon",
       "dataType": "SINGLE_SELECT",
-      "options": ["장기", "중기", "단기"],
-      "note": "3-tier 로드맵 호라이즌(Initiative/Epic/Task). Roadmap 뷰 그룹/필터용. gh-roadmap assets/fields.json 과 정합. 골든 템플릿 복제 시 이미 존재(멱등)."
+      "options": ["Long-term", "Mid-term", "Short-term"],
+      "note": "3-tier roadmap horizon (Initiative/Epic/Task). For Roadmap view grouping/filtering. Consistent with gh-roadmap assets/fields.json. Already exists when the golden template is copied (idempotent)."
     },
     {
       "name": "Start Date",
       "dataType": "DATE",
-      "note": "Roadmap 뷰 막대 시작점. Target Date 와 쌍이어야 '기간 막대'가 그려진다(한쪽만이면 점/짧은 막대). gh-roadmap assets/fields.json 정합. date field 연결은 UI에서만(API 불가). 골든 템플릿 복제 시 이미 존재(멱등)."
+      "note": "Start of the bar in the Roadmap view. Must be paired with Target Date for a 'duration bar' to be drawn (one side alone gives a dot/short bar). Consistent with gh-roadmap assets/fields.json. Date field wiring is UI-only (not possible via API). Already exists when the golden template is copied (idempotent)."
     },
     {
       "name": "Target Date",
       "dataType": "DATE",
-      "note": "Roadmap 레이아웃 뷰의 막대 끝(목표 출시일). ★ 이 필드가 없으면 로드맵 뷰가 일정 막대를 못 그린다 — 사용자 요구 '로드맵에 일정 큰 그림'의 데이터 근거. 골든 템플릿 복제 시 이미 존재(멱등)."
+      "note": "End of the bar in the Roadmap layout view (target release date). ★ Without this field the roadmap view cannot draw schedule bars — the data basis for the user requirement 'a big schedule picture on the roadmap'. Already exists when the golden template is copied (idempotent)."
     }
   ]
 }

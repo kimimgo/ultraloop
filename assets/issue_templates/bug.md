@@ -1,25 +1,26 @@
 ---
-name: 버그
-about: 재현 가능한 결함
+name: Bug
+about: A reproducible defect
 labels: ["bug"]
 ---
+<!-- write instance prose in the product's working language -->
 
-## 재현 절차
-<!-- 결정적으로 재현하는 단계. 단일 명령 기동(README의 up) 기준으로. -->
+## Reproduction steps
+<!-- Steps that reproduce it deterministically. Based on the single-command startup (the README's up). -->
 1.
 2.
 3.
 
-## 기대 동작
-<!-- 무엇이 일어나야 하는가. -->
+## Expected behavior
+<!-- What should happen. -->
 
-## 실제 동작
-<!-- 무엇이 일어났는가. 에러 메시지/스택트레이스/exit code. -->
+## Actual behavior
+<!-- What happened. Error message / stack trace / exit code. -->
 
-## E2E 증거 경로
-<!-- 실패를 보여주는 증거(스크린샷 링크/트랜스크립트/로그 경로). 원본 임베드 금지(<2MB). -->
+## E2E evidence path
+<!-- Evidence showing the failure (screenshot link / transcript / log path). No full-size embeds (<2MB). -->
 -
 
-## 심각도
-<!-- P0(서비스 중단/데이터 손상) / P1(주요 기능 깨짐) / P2(경미) -->
+## Severity
+<!-- P0 (service down / data corruption) / P1 (major feature broken) / P2 (minor) -->
 -

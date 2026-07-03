@@ -1,10 +1,10 @@
-# nightly E2E — 전체 회귀 (SPEC v0.3 / REQ-CD-2, REQ-E2E-8)
-# 루프마다 도는 E2E는 로컬·경량이고, 전체 스위트는 매일 밤 여기서 돈다.
+# nightly E2E — full regression (SPEC v0.3 / REQ-CD-2, REQ-E2E-8)
+# The per-loop E2E is local and lightweight; the full suite runs here every night.
 name: nightly-e2e
 
 on:
   schedule:
-    # 매일 17:17 UTC. (:00 정각은 피함 — 러너 몰림 완화)
+    # Daily at 17:17 UTC. (avoids :00 sharp — eases runner congestion)
     - cron: '17 17 * * *'
   workflow_dispatch:
 
@@ -13,31 +13,31 @@ permissions:
 
 jobs:
   e2e:
-    runs-on: self-hosted   # ★ 강제: self-hosted 원칙 — GitHub-hosted 금지 (ci-cd-hitl.md §0)
+    runs-on: self-hosted   # ★ enforced: self-hosted principle — GitHub-hosted forbidden (ci-cd-hitl.md §0)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: pip install -e '.[dev]'
-      # --- Node 예시 ---
+      # --- Node example ---
       # - uses: actions/setup-node@v4
       #   with: { node-version: '20' }
       # - run: corepack enable && pnpm install --frozen-lockfile
 
-      - name: 스택 기동 (docker compose)
+      - name: start the stack (docker compose)
         run: docker compose up -d --wait   # placeholder
 
-      - name: 전체 E2E 시나리오 실행
-        run: pytest tests/e2e -v   # placeholder — 전체 회귀 스위트
-        # --- Node 예시 ---
+      - name: run the full E2E scenarios
+        run: pytest tests/e2e -v   # placeholder — full regression suite
+        # --- Node example ---
         # run: pnpm test:e2e
 
-      - name: 스택 정리
+      - name: tear down the stack
         if: always()
         run: docker compose down -v
 
-      - name: 리포트 업로드
+      - name: upload reports
         if: always()
         uses: actions/upload-artifact@v4
         with:

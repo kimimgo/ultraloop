@@ -1,204 +1,208 @@
 # ──────────────────────────────────────────────────────────────────────────
-#  ultraloop.config.yaml  —  복사해서 대상 레포 루트에 두고, 환경에 맞춰 값만 바꾼다.
+#  ultraloop.config.yaml  —  copy to the target repo root and adjust only the values to your environment.
 #    cp ${CLAUDE_PLUGIN_ROOT}/config.example.yaml ./ultraloop.config.yaml
 #
-#  철학: 이 스킬은 "비결정적"이다. 아래 값은 *기본 가이드*이며, 비워두면(""/auto)
-#  매 loop 의 ①계획 점검에서 에이전트가 프로젝트 환경을 보고 스스로 결정한다.
-#  꼭 채워야 하는 건 [필수] 표시뿐. 나머지는 모르면 비워라 — 스킬이 probe 한다.
+#  Philosophy: this skill is "non-deterministic". The values below are *default guides*; leave them
+#  empty (""/auto) and the agent decides for itself from the project environment in step ① (plan check) of every loop.
+#  Only fields marked [required] must be filled. Leave the rest empty if unsure — the skill probes.
 # ──────────────────────────────────────────────────────────────────────────
 
-# ── 대상 & 미션 ────────────────────────────────────────────────────────────
-# [필수] 대상 레포 (owner/name 또는 https URL). 슬래시 인자로 넘기면 그 값이 우선.
-repo: ""                          # 예: owner/my-app   (결정1: 첫 드라이런 레포)
+# ── Target & mission ───────────────────────────────────────────────────────
+# [required] Target repo (owner/name or https URL). A slash-command argument takes precedence.
+repo: ""                          # e.g. owner/my-app   (decision 1: first dry-run repo)
 
-# [필수 둘 중 하나] 이번 실행의 목표·범위·DoD 보강.
-mission_file: ""                  # 외부 마크다운 경로(권장). 길고 상세한 스펙에 적합.
-mission: |                        # 또는 인라인 한 단락.
-  (여기에 미션을 적어도 됨 — 무엇을, 왜, 무엇이 "100% 작동"인지)
+# [required, one of the two] Goal, scope, and DoD reinforcement for this run.
+mission_file: ""                  # external markdown path (recommended). Suited to long, detailed specs.
+mission: |                        # or one inline paragraph.
+  (You may write the mission here — what, why, and what counts as "100% working")
 
 default_branch: main
-coverage_target: 80               # DoD 게이트 — 테스트 커버리지 목표(%)
+coverage_target: 80               # DoD gate — test coverage target (%)
 
-# ── 로드맵 SoT = GitHub Project(v2) 보드 ───────────────────────────────────
-#  보드가 유일한 가변 상태원(SoT). PROGRESS.md 는 여기서 재생성되는 읽기전용 뷰.
+# ── Roadmap SoT = GitHub Projects (v2) board ───────────────────────────────
+#  The board is the single source of truth for mutable state. PROGRESS.md is a read-only view regenerated from it.
 roadmap:
-  provider: github_projects_v2    # github_projects_v2 | milestones(폴백, R2)
-  project_node_id: ""             # 부트스트랩이 query-then-create 후 자동 기록(멱등). 손대지 말 것.
-  project_number: ""              # 〃 (사람이 보는 번호)
-  # project-scope PAT/App 필요 — 기본 GITHUB_TOKEN 으론 보드 자동화 불가(REQ-CI-3).
-  #   gh auth: PAT 에 'project' scope. env GH_TOKEN/UE_PROJECT_TOKEN 중 하나로 주입.
-  token_env: UE_PROJECT_TOKEN     # 이 env 이름에서 보드용 토큰을 읽는다(없으면 gh 기본).
-  ready_status: "Ready"           # "착수 가능" Status 옵션명. ⚠️ GitHub 기본 보드(Todo/In Progress/Done)는
-                                  #   Ready 옵션이 없다 → "Todo"로 바꿔야 워커가 일을 집는다(실제 멀티레포 토폴로지에서 검증).
-  approved: false                 # milestones 폴백 경로의 승인 플래그(provider=github_projects_v2면
-                                  #   라벨 roadmap:approved 로 판정하므로 이 값 무시).
-  # ★ 골든 템플릿 — 뷰·Roadmap 레이아웃·빌트인 워크플로는 API 생성 불가(검증) → copyProjectV2 복제만 가능.
-  #   보드 구조/셋업 권위 = gh-roadmap 스킬. 부트스트랩이 이 id 를 gh-roadmap roadmap_bootstrap.sh 로 복제한다.
-  template_node_id: "PVT_kwHOAUMds84BbPYp"   # 예시 = #12 "imdental-ai roadmap"(3역할뷰 Roadmap—PM·일정/Dev Board/
-                                  #   Build Monitor + ROADMAP_LAYOUT + Horizon/Target Date/Start Date 보유). ⚠️ 본인 골든
-                                  #   템플릿 보드 id 로 교체. 비우면 fresh 보드(로드맵 뷰·빌트인 워크플로 없음 — golden-template-setup.md).
+  provider: github_projects_v2    # github_projects_v2 | milestones (fallback, R2)
+  project_node_id: ""             # bootstrap records this automatically after query-then-create (idempotent). Do not touch.
+  project_number: ""              # 〃 (the human-visible number)
+  # A project-scope PAT/App is needed — the default GITHUB_TOKEN cannot automate the board (REQ-CI-3).
+  #   gh auth: PAT with the 'project' scope. Inject via env GH_TOKEN or UE_PROJECT_TOKEN.
+  token_env: UE_PROJECT_TOKEN     # env name to read the board token from (falls back to gh default if unset).
+  ready_status: "Ready"           # Status option name meaning "ready to start". ⚠️ The default GitHub board (Todo/In Progress/Done)
+                                  #   has no Ready option → change this to "Todo" or workers will not pick up work (verified in a real multi-repo topology).
+  approved: false                 # approval flag for the milestones fallback path (with provider=github_projects_v2 the
+                                  #   roadmap:approved label decides, so this value is ignored).
+  # ★ Golden template — views, the Roadmap layout, and built-in workflows cannot be created via the API (verified) → only copyProjectV2 cloning works.
+  #   Board structure/setup authority = the gh-roadmap skill. Bootstrap clones this id via gh-roadmap roadmap_bootstrap.sh.
+  template_node_id: ""            # node id of your own golden template board (e.g. "PVT_kwHOxxxxxxxxxxxxx" — has the 3 role views
+                                  #   Roadmap—PM·Schedule / Dev Board / Build Monitor + ROADMAP_LAYOUT + Horizon/Target Date).
+                                  #   Empty = fresh board (no roadmap views or built-in workflows — one-time setup per golden-template-setup.md recommended).
 
-# ── 스펙 권위 = GitHub Spec Kit (기획 게이트 산출물, SKILL §4.1.3) ───────────
-#  게이트에서 `specify init . --integration claude --script sh` (v0.10.x). ⚠️ Claude 통합은 슬래시 아닌
-#  .claude/skills/speckit-* 스킬로 설치 — speckit-constitution/-specify/-clarify/-plan/-tasks/-analyze
-#  체인으로 초안, speckit-taskstoissues 로 이슈화해 보드 연결. specs/ 가 스펙 원본(.specify/ 는 init 생성).
+# ── Spec authority = GitHub Spec Kit (planning-gate artifact, SKILL §4.1.3) ──
+#  At the gate run `specify init . --integration claude --script sh` (v0.10.x). ⚠️ The Claude integration installs as
+#  .claude/skills/speckit-* skills, not slash commands — draft via the speckit-constitution/-specify/-clarify/-plan/-tasks/-analyze
+#  chain, then turn into issues with speckit-taskstoissues to link the board. specs/ is the spec source (.specify/ is created by init).
 spec:
-  tool: github_speckit            # 스펙 작성 도구. 비우면 게이트에서 에이전트가 결정.
-  specs_dir: specs/               # 스펙 원본 디렉토리(부트스트랩은 자리만, specify init은 게이트에서).
-  freeze_in_loop: true            # 루프 중 specs/ 동결(§4.1.4). false=in-flight 수정 허용(비권장).
+  tool: github_speckit            # spec-writing tool. Empty = agent decides at the gate.
+  specs_dir: specs/               # spec source directory (bootstrap only makes the placeholder; specify init runs at the gate).
+  freeze_in_loop: true            # freeze specs/ during the loop (§4.1.4). false = allow in-flight edits (not recommended).
 
-# ── 자율 엔진: /loop(자기 페이싱) + /goal(정지 차단 게이트) ★ 계승된 내장 엔진 ─
+# ── Autonomy engine: /loop (self-pacing) + /goal (stop-blocking gate) ★ the inherited built-in engines ─
 engine:
-  # /loop — 자기 페이싱. interval 비우면 ScheduleWakeup 동적 페이싱(권장, 장기 루프).
-  #   값을 주면 CronCreate 고정 간격(예: "30m"). 이벤트(예: CI/E2E) 대기는 Monitor 무장.
+  # /loop — self-pacing. Empty interval = ScheduleWakeup dynamic pacing (recommended for long runs).
+  #   A value means CronCreate fixed interval (e.g. "30m"). For event waits (e.g. CI/E2E) arm Monitor.
   loop:
-    pacing: dynamic               # dynamic(ScheduleWakeup) | interval(CronCreate)
-    interval: ""                  # pacing=interval 일 때만. 예: "20m"  (빈값=dynamic)
-    idle_wakeup_seconds: 1200     # dynamic 폴백 하트비트(외부 이벤트 없을 때 깨어날 간격)
-  # /goal — Stop 훅 게이트. 정지 시도마다 goal_check 가 DoD 충족 여부를 재검사.
-  #   미충족 → 정지 차단 + iteration/last_reason 누적 + 계속. 충족 → clear(정지 허용).
+    pacing: dynamic               # dynamic (ScheduleWakeup) | interval (CronCreate)
+    interval: ""                  # only when pacing=interval. e.g. "20m"  (empty = dynamic)
+    idle_wakeup_seconds: 1200     # dynamic fallback heartbeat (wakeup interval when no external events)
+  # /goal — Stop-hook gate. On every stop attempt, goal_check re-verifies DoD satisfaction.
+  #   Unmet → block the stop + accumulate iteration/last_reason + continue. Met → clear (allow the stop).
   goal:
     enabled: true
-    install_stop_hook: true       # 대상 레포 .claude/settings.json 에 Stop 훅 설치(=/goal 그대로)
-    condition: "DoD"              # "DoD"=definition-of-done.md 전 항목. 또는 자유 조건 문자열.
-    # ↓ §15 하드 가드 (무한루프 방지 — 의무. 과거 가드 없는 Stop훅 사고 재발 차단)
-    max_iterations: 200           # Stop 훅이 정지를 막을 수 있는 누적 횟수 상한
-    max_stall_iterations: 10      # 무진척 가드: goal_check 사유가 N회 연속 동일(=진척 0)이면 정지 허용+
-                                  #   에스컬레이션. DoD 천장(남은 카드 전부 보류/blocked)의 busywork·429
-                                  #   폭주 차단(references/failure-modes.md FM1). 0=비활성.
-    lock_file: ""                 # 동시 재진입 차단(비우면 스크립트가 uid별 기본 경로 사용)
+    install_stop_hook: true       # install the Stop hook into the target repo .claude/settings.json (= /goal as-is)
+    condition: "DoD"              # "DoD" = every item of definition-of-done.md. Or a free-form condition string.
+    scope: "board"                # v0.10 run scope: "board" = full-board completion (default) |
+                                  #   "milestone:<title>" = this run ends when THAT milestone is drained
+                                  #   (goal gate counts only its issues; Ready pick + deploy marker scope with it —
+                                  #   the machine counterpart of per-milestone goals in north-star.md §2)
+    # ↓ §15 hard guards (infinite-loop prevention — mandatory. Blocks a repeat of the past guard-less Stop-hook incident)
+    max_iterations: 200           # cap on how many times the Stop hook may cumulatively block a stop
+    max_stall_iterations: 10      # no-progress guard: if the goal_check reason is identical N times in a row (= zero progress),
+                                  #   allow the stop + escalate. Blocks busywork/429 storms at the DoD ceiling (all remaining
+                                  #   cards parked/blocked) (references/failure-modes.md FM1). 0 = disabled.
+    lock_file: ""                 # concurrent re-entry lock (empty = the script uses a per-uid default path)
 
-# ── §15 비용·시간·관측 상한 (초과 시 안전 정지 = budget-stop, exit 7) ───────────
+# ── §15 cost/time/observability ceilings (exceeding = safe stop = budget-stop, exit 7) ───────────
 budgets:
-  max_loops: 0                    # 0=무제한(단 goal.max_iterations 가 상한). >0 이면 loop 수 캡.
-  max_wall_clock_hours: 24        # 전체 실행 벽시계 상한
-  max_tokens: 0                   # 토큰 회계는 하네스(세션)가 — cost_guard 미집계(best-effort). 표시용/향후.
-  ci_minutes_per_day: 0           # CI 분 서킷브레이커는 현재 미구현(best-effort) — 표시용/향후(REQ-CD-3).
-  dead_mans_switch_minutes: 30    # N분 무진전이면 알림(REQ-ST-3)
-  # ↓ N레포 모드 전용 (실측: xhigh 워커 3개 동시 = 주간 한도 77% — multi-repo §6)
-  weekly_usage_floor_percent: 90  # 주간 사용량 이 % 도달 시 신규 워커 기동 중단(진행분만 마감). 메타가 판단.
-  effort_by_task: {}              # 태스크 유형별 effort 티어. 예: {scaffold: medium, analysis: medium, design: high}
+  max_loops: 0                    # 0 = unlimited (but goal.max_iterations still caps). >0 caps the loop count.
+  max_wall_clock_hours: 24        # wall-clock ceiling for the whole run
+  max_tokens: 0                   # token accounting belongs to the harness (session) — cost_guard does not tally it (best-effort). Display/future.
+  ci_minutes_per_day: 0           # the CI-minutes circuit breaker is not implemented yet (best-effort) — display/future (REQ-CD-3).
+  dead_mans_switch_minutes: 30    # alert after N minutes without progress (REQ-ST-3)
+  # ↓ N-repo mode only (measured: 3 concurrent xhigh workers = 77% of the weekly quota — multi-repo §6)
+  weekly_usage_floor_percent: 90  # stop launching new workers at this % of weekly usage (finish in-flight work only). Meta decides.
+  effort_by_task: {}              # effort tier per task type. e.g. {scaffold: medium, analysis: medium, design: high}
 
-# ── HITL(사람 확인) — 프로덕션 배포 게이트 ──────────────────────────────────
+# ── HITL (human confirmation) — production deployment gate ──────────────────
 hitl:
   enabled: true
-  reviewers: [""]                 # GitHub username/team — 부트스트랩이 production env required reviewer 로 등록
+  reviewers: [""]                 # GitHub username/team — bootstrap registers them as production env required reviewers
   gated_environment: production
 
-# ── 배포 타깃 (결정2: 로컬 E2E만 vs staging 클라우드) ──────────────────────
+# ── Deploy target (decision 2: local E2E only vs staging cloud) ─────────────
 deploy:
   mode: local_e2e_only            # local_e2e_only | staging_cloud
   staging: { enabled: false, url: "" }
   production: { enabled: false, url: "" }
 
-# ── CI/CD 러너 — ★ self-hosted 원칙 (강제, ci-cd-hitl.md §0) ────────────────
-#  모든 Actions job은 self-hosted 러너. GitHub-hosted(ubuntu-latest 등) 금지.
-#  부트스트랩 probe 가 러너 온라인을 확인 — 없으면 루프 진행 금지+알림.
+# ── CI/CD runners — ★ self-hosted principle (enforced, ci-cd-hitl.md §0) ─────
+#  Every Actions job runs on self-hosted runners. GitHub-hosted (ubuntu-latest etc.) is forbidden.
+#  The bootstrap probe confirms a runner is online — if none, the loop must not proceed + alert.
 ci:
-  runs_on: [self-hosted]          # 라벨 추가만 허용(예: [self-hosted, linux, x64]). hosted 교체 금지.
+  runs_on: [self-hosted]          # only adding labels is allowed (e.g. [self-hosted, linux, x64]). Replacing with hosted is forbidden.
 
-# ── 스택 힌트 (비우면 매 loop ①에서 자동 감지 → 룰팩 적용) ──────────────────
+# ── Stack hints (empty = auto-detect in every loop ① → apply the rulepack) ───
 stack:
-  language: ""                    # python | typescript | go | ... (빈값=auto)
+  language: ""                    # python | typescript | go | ... (empty = auto)
   package_manager: ""             # uv | pnpm | ...
-  test_command: ""                # 예: "pytest -q"
-  lint_command: ""                # 예: "ruff check ."
-  build_command: ""               # 예: "docker build ."
+  test_command: ""                # e.g. "pytest -q"
+  lint_command: ""                # e.g. "ruff check ."
+  build_command: ""               # e.g. "docker build ."
 
-# ── 선택: GAN 품질 루프 (레인 ⑥ E2E에 Generator-Evaluator 반복 — gan-style-harness 차용) ─
+# ── Optional: GAN quality loop (Generator-Evaluator iteration in lane ⑥ E2E — borrowed from gan-style-harness) ─
 quality:
-  gan_evaluator: false            # true면 E2E 증거를 gan-evaluator(로컬 설치 에이전트)가 이슈 수용기준
-                                  #   루브릭으로 채점 → threshold 미달 시 레인이 재작업 후 재평가.
-  threshold: 8                    # 10점 만점 통과선
-  max_rounds: 3                   # ★ 하드가드 의무 — 품질 루프도 무한반복 금지(미달 3회면 Parked+승인큐)
+  gan_evaluator: false            # true = gan-evaluator (a locally installed agent) scores the E2E evidence against the issue
+                                  #   acceptance-criteria rubric → below threshold, the lane reworks and re-evaluates.
+  threshold: 8                    # passing bar out of 10
+  max_rounds: 3                   # ★ mandatory hard guard — no infinite repetition in the quality loop either (3 misses = Parked + approval queue)
 
-# ── 선택: 신뢰도 eval (pass@k / pass^k — eval-harness 스킬 차용) ──────────────
-# 1회 통과는 flaky 변경의 신뢰도를 보장 못 한다. critical 카드는 반복 실행으로 안정성을 잰다.
+# ── Optional: reliability eval (pass@k / pass^k — borrowed from the eval-harness skill) ────────────
+# A single pass does not guarantee the reliability of a flaky change. Critical cards measure stability via repeated runs.
 eval:
-  enabled: false                  # true면 카드 검증에 pass@k/pass^k 신뢰도 게이트 추가(끄면 기존 루프 무영향)
-  capability_pass_at_k: 3         # 기능 eval: k회 시도 중 1회+ 통과(pass@k) 측정
-  capability_threshold: 0.9       # pass@k 통과선(기본 pass@3 ≥ 0.90)
-  regression_pass_caret_k: 3      # 회귀 eval: critical 경로는 k회 모두 통과(pass^k = 1.0) 요구
-  critical_labels: ["release-critical", "payment", "auth"]  # pass^k를 강제할 카드 라벨
-  max_k: 5                        # ★ 하드가드 — 반복 상한(무한 재실행 금지)
-  artifact_dir: ".claude/evals"   # eval 정의·로그 저장 위치(eval-harness 레이아웃)
+  enabled: false                  # true adds a pass@k/pass^k reliability gate to card verification (off = the existing loop is unaffected)
+  capability_pass_at_k: 3         # capability eval: measure 1+ passes out of k attempts (pass@k)
+  capability_threshold: 0.9       # pass@k passing bar (default pass@3 ≥ 0.90)
+  regression_pass_caret_k: 3      # regression eval: critical paths must pass all k runs (pass^k = 1.0)
+  critical_labels: ["release-critical", "payment", "auth"]  # card labels that force pass^k
+  max_k: 5                        # ★ hard guard — repetition ceiling (no infinite reruns)
+  artifact_dir: ".claude/evals"   # where eval definitions/logs are stored (eval-harness layout)
 
-# ── 프로덕션 E2E (Tier 2) — merge 전 게이트 ★ ──────────────────────────────
+# ── Production E2E (Tier 2) — pre-merge gate ★ ──────────────────────────────
 e2e:
   runner: auto                    # auto | docker_compose | readme_command
-  ui_driver: browser_mcp          # browser_mcp(headless) | playwright_headless(폴백)
-  base_port: 14000                # 레인별 동적 포트 할당 시작점(충돌 방지)
+  ui_driver: browser_mcp          # browser_mcp (headless) | playwright_headless (fallback)
+  base_port: 14000                # starting point for per-lane dynamic port allocation (collision avoidance)
   health_timeout_seconds: 120
-  flake_retries: 3                # 일시 실패 백오프 재시도(이후에만 strike, REQ-E2E-6)
-  screenshot_max_mb: 2            # DLP — 스크린샷 압축/다운스케일 상한
-  secrets_file: ".env.e2e"        # 자격증명 주입원(평문 커밋 금지, teardown 시 폐기)
+  flake_retries: 3                # backoff retries for transient failures (strike only afterwards, REQ-E2E-6)
+  screenshot_max_mb: 2            # DLP — screenshot compression/downscale ceiling
+  secrets_file: ".env.e2e"        # credential injection source (no plaintext commits; discarded at teardown)
 
-# ── 병렬 레인 (worktree) ───────────────────────────────────────────────────
+# ── Parallel lanes (worktree) ────────────────────────────────────────────────
 worktree:
-  max_lanes: 2                    # 동시 레인 수(모듈 비충돌 이슈만 fan-out)
-  root: "../.ue-worktrees"        # 레인 worktree 루트
-  base_ref: "fresh"               # 격리 레인 분기 기준 — fresh=origin/<default>(권장: 재현가능·미푸시작업 비유입) | head=로컬 HEAD(미푸시 커밋 위 빌드)
-                                  #   bootstrap_repo.sh 가 이 값을 대상 레포 .claude/settings.json 의 worktree.baseRef 로 기록
+  max_lanes: 2                    # concurrent lane count (fan out only module-non-conflicting issues)
+  root: "../.ue-worktrees"        # lane worktree root
+  base_ref: "fresh"               # branch base for isolated lanes — fresh=origin/<default> (recommended: reproducible, no unpushed work leaks in) | head=local HEAD (build on unpushed commits)
+                                  #   bootstrap_repo.sh records this value as worktree.baseRef in the target repo .claude/settings.json
 
-# ── ★ Workflow 오케스트레이션 (Claude Code Workflow 도구 — opus·ultracode·dynamic) ──────────
-#  ⚠️ 여기 "워크플로"는 **Claude Code Workflow 도구(다중에이전트 오케스트레이션)**다. GitHub Projects
-#  **빌트인 워크플로**(닫힘→Done 등, roadmap 쪽 = gh-roadmap)와 전혀 다르다 — 혼동 금지.
-#  스킬은 세션 모델을 직접 못 바꾸므로(사용자 --model) 강제는 Workflow/Agent 호출 시 서브에이전트
-#  model/effort/agentType 지정 + 강한 지시로 한다. 상세 = references/workflow-orchestration.md.
+# ── ★ Workflow orchestration (Claude Code Workflow tool — opus·ultracode·dynamic) ──────────
+#  ⚠️ "Workflow" here means the **Claude Code Workflow tool (multi-agent orchestration)**. It is entirely different from GitHub Projects
+#  **built-in workflows** (closed→Done etc., roadmap side = gh-roadmap) — do not confuse them.
+#  A skill cannot change the session model directly (the user sets --model), so enforcement happens by specifying subagent
+#  model/effort/agentType on Workflow/Agent calls + strong instructions. Details = references/workflow-orchestration.md.
 workflow:
-  orchestrate: true               # 핵심 단계(pm 기획체인 / loop 레인)를 Workflow 도구로 오케스트레이션(강제 지시)
-  mode: ultracode                 # ultracode(단계별 다중에이전트 fan-out) | solo(단일 에이전트, 소규모)
-  pacing: dynamic                 # dynamic-workflow(동적 페이싱) — engine.loop.pacing 과 정합
-  agents:                         # ★ 워크플로 단계 서브에이전트 기본값 (모델/effort/최대 서브에이전트 — 부트스트랩이 기록)
-    model: opus                   #   서브에이전트 모델(opus 권장). 비우면 세션 모델 상속.
-    effort: xhigh                 #   서브에이전트 effort: low | medium | high | xhigh | max
-    max_subagents: 8              #   ★ 최대 동시 생성 서브에이전트 수(동시성 캡). 실동시성=min(이값, 코어-2).
-  by_phase:                       #   단계별 오버라이드(비우면 agents 기본값 상속)
-    pm:   { model: opus, effort: xhigh, max_subagents: 4 }   # 기획 체인(전략·로드맵·레드팀·스펙·우선순위) fan-out
-    loop: { model: opus, effort: xhigh, max_subagents: 8 }   # 레인 fan-out (각 레인 = isolation:worktree)
+  orchestrate: true               # orchestrate the core phases (pm planning chain / loop lanes) with the Workflow tool (enforced instruction)
+  mode: ultracode                 # ultracode (per-phase multi-agent fan-out) | solo (single agent, small scale)
+  pacing: dynamic                 # dynamic-workflow (dynamic pacing) — consistent with engine.loop.pacing
+  agents:                         # ★ workflow-phase subagent defaults (model/effort/max subagents — recorded by bootstrap)
+    model: opus                   #   subagent model (opus recommended). Empty = inherit the session model.
+    effort: xhigh                 #   subagent effort: low | medium | high | xhigh | max
+    max_subagents: 8              #   ★ max concurrently spawned subagents (concurrency cap). Actual concurrency = min(this, cores-2).
+  by_phase:                       #   per-phase overrides (empty = inherit the agents defaults)
+    pm:   { model: opus, effort: xhigh, max_subagents: 4 }   # planning chain (strategy, roadmap, red team, spec, prioritization) fan-out
+    loop: { model: opus, effort: xhigh, max_subagents: 8 }   # lane fan-out (each lane = isolation:worktree)
 
-# ── N레포 모드 (멀티 레포 / 1 공유 보드 / 세션 매니저 워커) ─────────────────────────
-#  references/multi-repo-orchestration.md 가 권위. repos: 에 2개 이상 주면 발동 —
-#  비우면(기본) 위의 repo: 스칼라 = 기존 단일 레포 동작(완전 하위호환).
-repos: []                         # 예 (메타 cc가 채움):
+# ── N-repo mode (multi repo / 1 shared board / session-manager workers) ───────────────────
+#  references/multi-repo-orchestration.md is the authority. Activates when repos: lists 2 or more —
+#  empty (default) means the scalar repo: above = the existing single-repo behavior (fully backward compatible).
+repos: []                         # example (the meta cc fills this in):
 #repos:
 #  - name: owner/service-a
-#    path: ~/work/service-a       # 워커 cwd [N레포 모드 필수]
-#    role: control-plane          # 자유 라벨
-#    default_stage: "2 컨트롤플레인 코어"
+#    path: ~/work/service-a       # worker cwd [required in N-repo mode]
+#    role: control-plane          # free-form label
+#    default_stage: "2 Control-plane core"
 #  - name: owner/service-b
 #    path: ~/work/service-b
-#    isolation: worktree          # 호스트가 디렉토리 점유 시 worktree 격리(점유는 자동 감지도 함)
+#    isolation: worktree          # worktree isolation when a host occupies the directory (occupancy is also auto-detected)
 
-board:                            # ★ N레포 모드: 보드는 레포 위 '공유' 1개 — 레포마다 만들지 않는다
-  shared: false                   # true = 공유 보드(워커는 보드 생성 금지, 자기 레포 카드만 필터해 읽음)
-  title: ""                       # 공유 보드 제목(빈값="<첫 repo명> Platform"). board_bootstrap.sh 멱등 키.
-  stage_options: []               # Stage 단일선택 옵션 목록(빈값=Stage 필드 생략). 예: ["1 코어", "2 코어 API"]
+board:                            # ★ N-repo mode: the board is ONE shared board above the repos — do not create one per repo
+  shared: false                   # true = shared board (workers must not create boards; they read only their own repo's cards, filtered)
+  title: ""                       # shared board title (empty = "<first repo name> Platform"). board_bootstrap.sh idempotency key.
+  stage_options: []               # Stage single-select option list (empty = omit the Stage field). e.g. ["1 Core", "2 Core API"]
 
-orchestration:                    # ★ N레포 워커 제어 (spawn 권한 = 메타 단독, 워커/훅 호출 금지)
-  mode: in_process_lanes          # in_process_lanes(기존 단일 레포) | session_mgr_sessions(N레포 tmux 워커)
-  spawn: tmux_new_session         # tmux_new_session(ul-접두 세션) | session_mgr (외부 세션 매니저 CLI — 선택.
-                                  #   세션명=basename → `ta` attach 호환 + bookmark 재부팅 영속.
-                                  #   ⚠️ ensure-hot은 CC 안 띄움 — CC 기동은 스크립트가)
-  channel: auto                   # auto(message broker 가용 시 durable 메시징, 아니면 send_keys) | broker | send_keys
-                                  #   broker = 예시 브로커 API HTTP POST /team/messages → 워커 inbox 영속(+send-keys 깨우기 보너스, 유실 없음)
-  tmux_socket: ""                 # ""=기본 서버 | "ultraloop"=격리 소켓(tmux -L) — 운영 tmux 서버 보호
-  max_concurrent_workers: 2       # 동시 워커 캡(사용량·tmux 부하 throttle)
-  stagger_seconds: 20             # 워커 동시 기동 금지 — 순차 기동 간격
+orchestration:                    # ★ N-repo worker control (spawn authority = meta only; worker/hook calls forbidden)
+  mode: in_process_lanes          # in_process_lanes (existing single repo) | session_mgr_sessions (N-repo tmux workers)
+  spawn: tmux_new_session         # tmux_new_session (ul- prefixed sessions) | session_mgr (external session-manager CLI — optional.
+                                  #   session name = basename → `ta` attach compatible + bookmark persists across reboots.
+                                  #   ⚠️ ensure-hot does not start CC — CC startup is the script's job)
+  channel: auto                   # auto (durable messaging when a message broker is available, else send_keys) | broker | send_keys
+                                  #   broker = example broker API HTTP POST /team/messages → durable worker inbox (+ send-keys wake-up bonus, no loss)
+  tmux_socket: ""                 # "" = default server | "ultraloop" = isolated socket (tmux -L) — protects the operational tmux server
+  max_concurrent_workers: 2       # concurrent worker cap (throttles usage and tmux load)
+  stagger_seconds: 20             # no simultaneous worker start — sequential start interval
   permission_mode: bypassPermissions
 
-# ── 알림 & 승인 — Discord 게이트웨이 봇(아웃바운드 WS) ─────────────────────
-#  (결정3: 서버/채널/봇토큰/승인자/TTL)
+# ── Notifications & approvals — Discord gateway bot (outbound WS) ─────────────
+#  (decision 3: server/channel/bot token/approvers/TTL)
 discord:
   enabled: true
-  mode: gateway_bot               # gateway_bot(WS, 버튼 수신) | webhook_outbound(폴백, 알림만) | console
-  token_env: ULTRALOOP_DISCORD_BOT_TOKEN   # 봇 토큰을 읽을 env 이름(평문 금지)
-  notify_channel_id: ""           # 일상 알림(loop/push/CI/E2E/heartbeat)
-  approval_channel_id: ""         # 고위험 승인 버튼 [Y]/[N]
-  approver_user_ids: [""]         # 승인 권한 user id
-  approval_ttl_minutes: 120       # 무응답 TTL → 에스컬레이션/defer(REQ-APR-3)
+  mode: gateway_bot               # gateway_bot (WS, receives buttons) | webhook_outbound (fallback, notify only) | console
+  token_env: ULTRALOOP_DISCORD_BOT_TOKEN   # env name to read the bot token from (no plaintext)
+  notify_channel_id: ""           # routine notifications (loop/push/CI/E2E/heartbeat)
+  approval_channel_id: ""         # high-risk approval buttons [Y]/[N]
+  approver_user_ids: [""]         # user ids with approval authority
+  approval_ttl_minutes: 120       # no-response TTL → escalate/defer (REQ-APR-3)
 
-# ── 위험도(기본값; 룰은 references/notify-approval.md) ──────────────────────
+# ── Risk (defaults; rules live in references/notify-approval.md) ─────────────
 risk:
-  # 고위험(승인 큐+park)·저위험(알림+진행) 분류는 references 가 권위. 여기선 토글만.
+  # references is the authority for classifying high risk (approval queue + park) vs low risk (notify + proceed). Only toggles here.
   treat_dependency_major_as_high: true

@@ -1,0 +1,56 @@
+# FLOW — UX flow spec (design-loop-protocol §2 · required before screen generation)
+
+> This document is the **SoT for navigation wiring (INTEGRATE §6) and the task walk (VERIFY §8)**.
+> Pages exist for tasks — a page/button without an owning task cannot enter this document,
+> and a page/button not in this document cannot enter the mockups.
+<!-- write instance prose in the product's working language -->
+
+## 0. Personas & core tasks ★ the heart of product judgment — a human fills this in
+
+| ID | Persona (who) | Task (what they want to do) | Success condition (1 line, user terms) | Frequency |
+|----|------------|-----------------|--------------------------|------|
+| T1 | (e.g.) operations staff | Find today's failed jobs and retry them | Failure list → retry confirmed within 3 clicks | daily |
+| T2 |  |  |  |  |
+| T3 |  |  |  |  |
+
+<!-- TODO(product owner): fill the table above with real personas/tasks. 3-7 is the right range —
+     over 10 it is a list, not a product. This table governs everything below. -->
+
+## 1. Sitemap (a page = where tasks live)
+
+| page-id | Purpose (1 line) | Owning task | Entry points (where users arrive from) |
+|---------|---------|------------|-------------------|
+| home | (e.g.) grasp status at a glance + enter anomalies | T1 | first entry · brand click |
+
+## 2. Task-flow transition tables (1 block per task)
+
+### T1: <task name>
+| step | Page | Element (button/input/row) | Why it is needed (1 line) | What appears on press (response) | State handling |
+|------|-------|-------------------|-----------------|--------------------------|----------|
+| 1 | home | "failures only" filter | isolate anomalies immediately | list narrows to failures (instantly) | empty: "no failures" message |
+| 2 |  |  |  |  | loading/error specified |
+
+## 3. Button map (necessity audit — WALKTHROUGH §9 interrogates with this table)
+
+| Page | Element | Linked task | What appears on press | 3-state (loading/empty/error) defined? | Verdict |
+|-------|------|-----------|----------------|----------------------------------|------|
+|  |  |  |  |  | required / suspect / remove |
+
+- **An element with an empty linked-task cell = "suspect"** — justify it or remove it. AUDIT deadCandidates
+  exemptions apply only to elements with a justification written in this table.
+
+## 4. State matrix (a single-state mockup = a shell (hollow) page)
+
+| Page | loading | empty | error | success |
+|-------|---------|-------|-------|---------|
+|  | how it looks | what it guides to | the recovery action | the confirmation feedback |
+
+## 5. Transition coverage list (every edge INTEGRATE wires and VERIFY replays by clicking)
+
+```
+home → detail        (row click)
+home → settings      (gear icon)
+detail → home        (breadcrumb)
+```
+
+- 100% coverage of this list = wiring complete. Wiring outside the list (arbitrary pill switchers etc.) is forbidden.

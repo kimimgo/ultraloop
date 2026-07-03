@@ -1,51 +1,46 @@
-# 룰팩 베이스 (모든 스택 공통)
+# Rulepack base (common to all stacks)
 
-> 이건 규칙이 아니라 **기본 가이드**다. 프로젝트마다 합리적으로 적응시켜라.
-> 매 loop ①에서 스택을 감지하면 → 해당 언어 룰(`python.md`, `typescript.md`, ...) + 이 `_base.md`를 함께 적용한다.
-> 룰팩 위치: `${CLAUDE_PLUGIN_ROOT}/references/rules/`
+> This is not law but a **default guide**. Adapt it sensibly per project.
+> When the stack is detected at every loop ① → apply the matching language rules (`python.md`, `typescript.md`, ...) together with this `_base.md`.
+> Rulepack location: `${CLAUDE_PLUGIN_ROOT}/references/rules/`
 
-## 룰팩 적용 방식
+## How the rulepack is applied
 
-1. **감지**: loop 시작 시 레포 루트를 본다. `pyproject.toml` → python, `package.json` + `tsconfig.json` → typescript 등. 여러 개면 주력 스택부터.
-2. **적용**: `_base` + 감지된 스택 룰을 그 loop의 품질 기준으로 삼는다.
-3. **드리프트 교정**: 룰과 현 코드가 어긋나면 — 작은 차이는 그 작업 안에서 **교정 커밋**으로, 큰 차이는 별도 **이슈**(라벨 `chore`/`refactor`)로 분리한다. 한 PR에 무관한 정리를 섞지 않는다.
+1. **Detect**: at loop start, look at the repo root. `pyproject.toml` → python, `package.json` + `tsconfig.json` → typescript, etc. If several, start from the primary stack.
+2. **Apply**: make `_base` + the detected stack rules the quality bar of that loop.
+3. **Drift correction**: when the rules and the current code diverge — small differences become a **correction commit** inside that work; large ones are split off as a separate **issue** (label `chore`/`refactor`). Do not mix unrelated cleanup into one PR.
 
-## 단일 명령 기동 (E2E의 `up` 계약)
+## Single-command startup (the E2E `up` contract)
 
-이게 가장 중요한 공통 규약이다. 레포는 **하나의 명령**으로 전체 스택이 떠야 한다.
+This is the most important common contract. A repo must come up with **one command**.
 
-- 예: `docker compose up -d`, `make up`, `./scripts/dev.sh`.
-- 이 명령은 README의 "단일 명령 설치·기동" 섹션에 **그대로** 적혀 있어야 한다.
-- E2E 러너(`e2e.runner`)의 `up` 단계는 README에 적힌 그 명령을 **그대로 호출**한다. 따로 적힌 별도 절차가 있으면 안 된다 — 문서 환각을 차단하는 장치다.
-- 기동 후 헬스 체크(HTTP 200, 컨테이너 healthy 등)로 "떴다"를 확인할 수 있어야 한다.
+- e.g. `docker compose up -d`, `make up`, `./scripts/dev.sh`.
+- This command must be written **verbatim** in the README's "single-command install & run" section.
+- The `up` stage of the E2E runner (`e2e.runner`) calls that command from the README **verbatim**. A separate procedure written elsewhere is not allowed — this is the device that blocks documentation hallucination.
+- After startup, a health check (HTTP 200, containers healthy, etc.) must be able to confirm it is "up".
 
-문서와 실제가 어긋나면(README엔 `make up`인데 실제론 안 뜸) → 그 자체가 결함이다. 코드나 문서를 맞춰 고친다.
+If docs and reality diverge (README says `make up` but it does not actually run) → that itself is a defect. Fix the code or the docs so they match.
 
-## 시크릿
+## Secrets
 
-- 시크릿은 **절대 커밋하지 않는다**. `.env`, 키, 토큰, 인증서.
-- 예시는 `.env.example`(값 비움/더미)로 제공하고, 실제 `.env`는 `.gitignore`에 넣는다.
-- 설정은 환경변수로 읽는다(코드에 하드코딩 금지). README "설정(env)" 섹션에 변수 목록을 둔다.
-- 이미 커밋된 시크릿을 발견하면 → 라벨 `security` 이슈로 즉시 올리고, 회전(rotate) 필요를 명시한다.
+- Secrets are **never committed**. `.env`, keys, tokens, certificates.
+- Provide examples via `.env.example` (values empty/dummy), and put the real `.env` in `.gitignore`.
+- Read configuration from environment variables (no hardcoding in code). Keep the variable list in the README "Configuration (env)" section.
+- If an already-committed secret is discovered → raise a `security`-labeled issue immediately and state that rotation is required.
 
-## .gitignore 위생
+## .gitignore hygiene
 
-- 빌드 산출물, 캐시, 가상환경, 로그, `.env`, IDE 설정, E2E 증거 원본(스크린샷 등 대용량)은 무시한다.
-- E2E 증거는 원본을 레포에 넣지 말고 링크/아티팩트로 — 자세한 건 PR 템플릿 참조(`< 2MB`, 임베드 금지).
+- Ignore build artifacts, caches, virtualenvs, logs, `.env`, IDE settings, and raw E2E evidence (large files like screenshots).
+- Do not put raw E2E evidence in the repo — use links/artifacts. Details in the PR template (`< 2MB`, no embeds).
 
-## 원자 커밋
+## Atomic commits
 
-- 한 커밋 = 하나의 논리적 변경. 빌드/테스트가 통과하는 상태로 커밋한다.
-- 메시지는 `type: 요약` (type은 라벨과 같은 어휘: feat/fix/test/refactor/chore/docs). 가능하면 `(#이슈)` 참조.
-- 무관한 변경을 한 커밋에 섞지 않는다.
+- One commit = one logical change. Commit in a state where build/tests pass.
+- The message is `type: summary` (type uses the same vocabulary as labels: feat/fix/test/refactor/chore/docs). Reference `(#issue)` when possible.
+- Do not mix unrelated changes into one commit.
 
-## 테스트 디렉토리 레이아웃
+## Test directory layout
 
-- 테스트는 별도 `tests/`(또는 스택 관례 위치)에 둔다. 소스와 섞지 않는다.
-- 종류별로 구분: `tests/unit/`, `tests/integration/`, `tests/e2e/`(또는 시나리오/리포트는 `e2e/`).
-- 커버리지 목표는 `coverage_target`(기본 80). 신규 코드는 이 선을 지키도록 테스트를 먼저 쓴다(TDD).
-
-## README
-
-- 모든 레포는 README가 필수다. 필수 섹션과 규약은 `readme.md` 참조.
-- README는 "지금 이 레포에서 실제로 통하는 것"만 적는다 — 없는 명령/env/기능을 지어내지 않는다.
+- Tests live in a separate `tests/` (or the stack-conventional location). Do not mix them with source.
+- Separate by kind: `tests/unit/`, `tests/integration/`, `tests/e2e/` (or `e2e/` for scenarios/reports).
+- The coverage target is `coverage_target` (default 80). Write tests first so new code holds this line (TDD).

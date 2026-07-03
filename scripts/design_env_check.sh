@@ -22,6 +22,7 @@ command -v playwright-cli >/dev/null 2>&1 && ok "playwright-cli (render verify)"
 
 # Design skills (best-effort presence)
 for s in taste-design artifact-design impeccable taste-skill frontend-design tri-model-review gemini-image-eval; do
-  if ls -d ~/.claude*/skills/$s ~/.claude/plugins/cache/*/*/*/skills/$s 2>/dev/null | grep -q .; then ok "skill: $s"; else no "skill: $s (optional)"; fi
+  found=0; for pth in ~/.claude*/skills/$s ~/.claude/plugins/cache/*/*/*/skills/$s; do [ -e "$pth" ] && { found=1; break; }; done
+  if [ "$found" = 1 ]; then ok "skill: $s"; else no "skill: $s (optional)"; fi
 done
 echo "== done =="

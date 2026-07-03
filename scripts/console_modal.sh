@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# ultraloop console_modal.sh — 터미널 앞에 사람이 있을 때의 폴백 승인 모달
-# Discord 게이트웨이 봇을 못 쓰는 환경에서 /dev/tty 로 직접 Y/N 을 묻는다.
+# ultraloop console_modal.sh — fallback approval modal for when a human is at the terminal
+# In environments where the Discord gateway bot cannot be used, asks Y/N directly via /dev/tty.
 #
-# 사용법: console_modal.sh "<question>" "<risk>"
+# usage: console_modal.sh "<question>" "<risk>"
 #
-# 종료코드(approval_queue 계약과 일치): 0=Y(승인) / 1=N(거부) / 4=hold(타임아웃·무응답)
+# exit codes (matching the approval_queue contract): 0=Y (approve) / 1=N (reject) / 4=hold (timeout/no answer)
 set -uo pipefail
 
-QUESTION="${1:-승인이 필요합니다.}"
+QUESTION="${1:-Approval required.}"
 RISK="${2:-unknown}"
-TIMEOUT="${ULTRALOOP_CONSOLE_TIMEOUT:-120}"   # 초 단위, read -t 로 사용
+TIMEOUT="${ULTRALOOP_CONSOLE_TIMEOUT:-120}"   # seconds, used with read -t
 
-# tty 가 없으면(스크립트/CI) 사람이 답할 수 없으므로 즉시 hold.
+# Without a tty (script/CI) no human can answer, so hold immediately.
 if [ ! -e /dev/tty ] || [ ! -r /dev/tty ]; then
   echo "[console_modal] no tty → hold" >&2
   exit 4
@@ -20,16 +20,16 @@ fi
 {
   echo ""
   echo "──────────────────────────────────────────────"
-  echo " ⚠️  ultraloop 승인 요청 (risk: ${RISK})"
+  echo " ⚠️  ultraloop approval request (risk: ${RISK})"
   echo "──────────────────────────────────────────────"
   echo " ${QUESTION}"
   echo ""
-  echo " [Y] 승인   [N] 거부   (${TIMEOUT}s 내 무응답 시 보류)"
-  echo -n " 선택 > "
+  echo " [Y] approve   [N] reject   (held if no answer within ${TIMEOUT}s)"
+  echo -n " choice > "
 } >/dev/tty
 
 ANSWER=""
-# read -t 로 타임아웃. 입력은 /dev/tty 에서 직접 읽는다.
+# timeout via read -t. Input is read directly from /dev/tty.
 if ! read -t "$TIMEOUT" -r ANSWER </dev/tty; then
   echo "" >/dev/tty
   echo "[console_modal] timeout/no-answer → hold" >&2

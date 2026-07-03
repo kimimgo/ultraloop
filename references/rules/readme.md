@@ -1,40 +1,41 @@
-# README 규약
+# README contract
 
-README는 **새로 온 사람(또는 fresh agent)이 가장 빨리 첫 성공에 도달하게** 하는 문서다.
-지어내지 말 것 — 실제로 동작하는 명령/env/기능만 적는다.
+The README is the document that gets **a newcomer (or a fresh agent) to their first success as fast as possible**.
+Do not make things up — write only commands/env/features that actually work.
 
-## 필수 섹션
+## Required sections
 
-1. **개요** — 이 프로젝트가 무엇이고 무엇을 하는지 1~3문장.
-2. **요구사항** — 런타임/도구 버전(예: Docker, Python 3.12, Node 20). 있는 것만.
-3. **단일 명령 설치·기동** ← 핵심
-4. **설정(env)** — 필요한 환경변수 목록과 의미. 시크릿은 값 없이 이름만(`.env.example` 참조).
-5. **테스트** — 테스트 돌리는 명령, 커버리지 확인법.
-6. **E2E 기동** — E2E를 어떻게 돌리는지. `up`이 어떤 단일 명령을 부르는지 명시.
+1. **Overview** — 1~3 sentences on what this project is and what it does.
+2. **Requirements** — runtime/tool versions (e.g. Docker, Python 3.12, Node 20). Only what exists.
+3. **Single-command install & run** ← the core
+4. **Configuration (env)** — the list of required environment variables and their meaning. Secrets by name only, without values (see `.env.example`).
+5. **Tests** — the command to run tests, how to check coverage.
+6. **E2E startup** — how to run E2E. State which single command `up` calls.
 
-## "단일 명령 기동"이 핵심인 이유
+## Why the "single-command startup" is the core
 
-E2E 러너(`e2e.runner`)의 `up` 단계는 **README에 적힌 이 명령을 그대로 호출**한다.
+The `up` stage of the E2E runner (`e2e.runner`) **calls exactly the command written in the README**.
 
 - README:
 
   ```
-  ## 설치·기동
+  ## Install & run
   docker compose up -d
   ```
 
-- E2E `up`: 위와 **똑같이** `docker compose up -d`를 실행한다.
+- E2E `up`: runs `docker compose up -d`, **exactly the same** as above.
 
-따라서 README의 기동 명령과 실제 기동 절차는 **항상 일치**해야 한다.
-어긋나면 그 자체가 결함이며, "문서 환각"(README엔 있지만 실제론 안 됨)을 막는 계약이다.
+Therefore the README's startup command and the actual startup procedure must **always match**.
+If they diverge, that itself is a defect — this is the contract that blocks "documentation hallucination"
+(it is in the README but does not actually work).
 
-좋은 단일 명령의 조건:
-- 한 줄로 전체 스택이 뜬다(앱 + 의존 서비스 db 등).
-- 기동 후 헬스 체크로 "떴다"를 확인할 수 있다.
-- 사전 준비(빌드/마이그레이션 등)가 필요하면 그 명령 안에 포함되거나, 바로 앞 한 줄로 명시된다.
+Conditions of a good single command:
+- One line brings up the whole stack (app + dependent services, db, etc.).
+- After startup, a health check can confirm it is "up".
+- If preparation (build/migrations etc.) is needed, it is either included inside that command or stated as the single line right before it.
 
-## 작성 톤
+## Writing tone
 
-- 명령은 복붙 가능한 코드블록으로.
-- "보통은", "아마" 같은 모호한 표현 금지 — 확인된 것만.
-- 스크린샷/다이어그램은 선택. 명령의 정확성이 우선.
+- Commands as copy-pasteable code blocks.
+- Vague wording like "usually" or "probably" is forbidden — only what has been verified.
+- Screenshots/diagrams are optional. Command accuracy comes first.
