@@ -9,14 +9,24 @@
 # Wake = STANDARD, not a bonus (this is the fix for the passive-comms gap). Best-effort: send-keys failure is non-fatal.
 # ★ No recursion: send-keys a one-liner only — never spawns a session (crew's star topology: main↔lanes, lanes never spawn).
 #
-# usage: crew_notify.sh <project~slug|main> "<message>"     (FROM defaults to $TEAM_NAME, else "main")
+# ★ cc-hub routes FLAT names (team_messages has no project/wt column), so every name MUST carry the ows taxonomy —
+#   main = `<project>`, lane = `<project>~<slug>`. A bare `main` collides across concurrent project crews; never use it.
+# usage:
+#   crew_notify.sh <project|project~slug> "<message>"   # explicit ows-qualified target
+#   crew_notify.sh --to-main "<message>"                # a lane → its OWN project's main (derived: <project>~<slug> → <project>)
 # exit 0 = delivered (queued at minimum) · 2 = arg error
 set -uo pipefail
-TARGET="${1:-}"; MSG="${2:-}"
-[ -n "$TARGET" ] && [ -n "$MSG" ] || { echo "usage: crew_notify.sh <target-session> \"<message>\""; exit 2; }
+if [ "${1:-}" = "--to-main" ]; then
+  MSG="${2:-}"
+  [ -n "${TEAM_NAME:-}" ] || { echo "crew_notify --to-main: TEAM_NAME unset — cannot derive the project's main"; exit 2; }
+  TARGET="${TEAM_NAME%%~*}"   # <project>~<slug> → <project> (this lane's project main); a main name is unchanged
+else
+  TARGET="${1:-}"; MSG="${2:-}"
+fi
+[ -n "$TARGET" ] && [ -n "$MSG" ] || { echo "usage: crew_notify.sh <project|project~slug> \"<message>\"  |  crew_notify.sh --to-main \"<message>\""; exit 2; }
 
 CCHUB="${TCTL_CCHUB_BASE:-http://127.0.0.1:28797}"
-FROM="${TEAM_NAME:-main}"
+FROM="${TEAM_NAME:-main}"   # the sender's own ows-qualified name (ows sets TEAM_NAME = the session name)
 TMUX_BIN=(tmux); [ -n "${TMUX_SOCK:-}" ] && TMUX_BIN=(tmux -S "$TMUX_SOCK")
 
 # 1) durable payload → cc-hub inbox (survives even if the wake misses)

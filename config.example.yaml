@@ -170,7 +170,9 @@ crew:
   enabled: false                  # true = run under crew (main coordinator + ows worktree lanes; each lane = the ordinary loop, one card, max_lanes→1)
   channel: auto                   # coordination channel: auto (team_inbox / cc-hub HTTP if present, else send_keys) | broker | send_keys
   crew_channel: ""                # team_inbox room name for this crew (empty = "<repo-basename>-crew")
-  report_to: main                 # the team_inbox hub lanes report to — matches the ows worktree-context hook's report target
+  report_to: ""                   # team_inbox hub a lane reports to. empty = the lane's OWN project main `<project>` (derived from its
+                                  #   `<project>~<slug>` name via crew_notify.sh --to-main). ★ Never a bare "main" — cc-hub routes flat
+                                  #   names (no project column), so the address must be project-qualified or concurrent crews collide.
   claim_jitter_seconds: 4         # self-serve claim only: arbitration window — re-read after this to resolve races (earliest broker timestamp wins)
   claim_ttl_minutes: 45           # self-serve claim only: a claim by a vanished lane expires after this → the card is reclaimable
   # lane sessions are named <project>~<slug> by ows (not registry-tracked; `git worktree list` is the SoT) — no prefix knob needed.

@@ -2,6 +2,16 @@
 
 All notable changes to ultraloop are documented here. Versioning is [SemVer](https://semver.org/).
 
+## 0.11.1
+
+### Fixed
+- **Crew cc-hub addressing was not project-qualified** — cc-hub `team_messages` routes by a flat `to`/`from` string (the table has
+  no project/worktree column), but the crew protocol addressed the coordinator as a bare `main`. With two project crews running at
+  once, both mains share the single global `main` inbox → cross-project message theft. Crew now encodes the ows taxonomy in **every**
+  name: main = `<project>`, lane = `<project>~<slug>` (ows already sets `TEAM_NAME` to this). New `scripts/crew_notify.sh --to-main`
+  derives a lane's own project main (`<project>~<slug>` → `<project>`); `crew.report_to` defaults to it, never a bare `main`. Documented
+  as the crew naming taxonomy (crew-mode.md §1). e2e-verified — project-qualified delivery + no leak into a global `main` inbox.
+
 ## 0.11.0
 
 Loosens the pm↔loop boundary from card-granular to milestone-granular, puts the project context brief on the board, and adds a

@@ -35,6 +35,15 @@ Everything below is provided by ows/cc-hub and fires automatically; crew's job i
 > **The ultraloop SessionStart hook coexists with the ows ones** (both fire; multiple SessionStart hooks are additive). ultraloop's prints
 > the active line + the board-README context mirror; ows's prints the lane protocol + siblings. Do not duplicate the sibling logic in ultraloop.
 
+### Naming taxonomy — cc-hub routes FLAT names, so encode the ows hierarchy (no bare `main`)
+
+cc-hub's `team_messages` addresses by a flat `to`/`from` string — the table has **no project or worktree column**. So the ows session taxonomy must be **encoded in the name**, and every crew address is project-qualified:
+
+- **main** = `<project>` — the ows main session name (e.g. `onlybit`).
+- **lane** = `<project>~<slug>` — project + worktree slug (e.g. `onlybit~chat-infra`). ows sets each session's `TEAM_NAME` to exactly this, so a lane's own inbox (`/team/inbox/$TEAM_NAME`) is already project-qualified.
+
+Throughout this doc, **"report to `main`" means report to `<project>`** — the sender's own project main, never a literal `main`. A bare `main` routes into **one global inbox shared by every concurrent crew** → cross-project message theft. A lane resolves its main by stripping its slug (`<project>~<slug>` → `<project>`); `scripts/crew_notify.sh --to-main` does exactly this. (The ows worktree-context hook writes `to="main"` as shorthand — read it as `<project>`.)
+
 ### Active delivery — the inbox is not just polled, it wakes (fixes the passive gap)
 
 A durable send alone is passive: an idle lane sees a message only at its next SessionStart / self-wakeup (up to `idle_wakeup_seconds`). Crew closes this at both ends, using only pieces that already exist:
