@@ -2,6 +2,47 @@
 
 All notable changes to ultraloop are documented here. Versioning is [SemVer](https://semver.org/).
 
+## 0.11.0
+
+Loosens the pm↔loop boundary from card-granular to milestone-granular, puts the project context brief on the board, and adds a
+flat-peer crew topology. Backward compatible: an older config missing the new keys keeps the existing behavior (`engine.autonomy`
+absent = `card`; `crew.enabled` absent = single-session). The shipped `config.example.yaml` recommends `autonomy: milestone`.
+
+### Added
+- **Milestone-envelope autonomy** (`engine.autonomy`) — draws the pm↔loop permission boundary by SCOPE, not by card. `card`
+  (the 0.10 behavior) keeps every planning card as pm's; `milestone` (recommended) lets loop **breed its own tactical TDD cards
+  inside the active milestone envelope**, admitted only through a 3-gate (Goal-link to the active milestone · no anti-goal conflict
+  · no new milestone/Epic — north-star.md §4.5). Strategic scope (new milestone/Epic, anti-goal boundary, north-star edits) still
+  escalates to pm. pm's handoff unit becomes the **milestone contract** (goal + verdict + anti-goals + acceptance) + seed cards,
+  not an exhaustive card list. Wired into loop-protocol ① (breeding step) and the pm/loop SKILL permission tables.
+- **Board README context brief** — the project brief (linked repos · collaborators · special project rules) now lives on the
+  board (SoT) via `ProjectV2.readme`. New gh-roadmap `roadmap_readme.sh` (get/set/cache, `--pnode` override); bootstrap seeds a
+  fillable `assets/CONTEXT.template.md` mirror and pulls the board README when it exists; the SessionStart hook injects the local
+  mirror (cache-only, no graphql) so a fresh session knows the context immediately. Product working language, no tool names.
+- **Crew mode** (`crew.*`) — the single-repo shape of N-repo meta/worker, but lanes are **ows worktree sessions** `<project>~<slug>`
+  (**human-attachable siblings**): `main` coordinator + N lanes on one board. Built **on ows, not reimplemented** — lanes via
+  `ows wt-spawn`, sync via `ows wt-sync`, the lane role + sibling awareness + `TEAM_NAME` inbox from the ows `worktree-context`
+  SessionStart hook, coordination via team_inbox (lanes report to `main`). Board ownership = a **product-language workstream** on the
+  board (Epic / Workstream field, feature-named — never a `wt`/`lane`/session-id label, messaging §5) with **assignee as the lock**;
+  name the worktree after the workstream so slug == field value. Coordinator-assign (single assigner, no race) or self-serve claim
+  (In-Progress + assignee lock, earliest-claim-wins). No recursion: only `main`/a human spawns lanes. Reference: references/crew-mode.md.
+  The board ownership + a `crew_orchestrate`/`crew_claim.sh` helper ship as a guide (graduate to automation later — same footing as the N-repo meta loop).
+- **Active team comms** (crew + multi-repo) — closes the passive-inbox gap so teammates don't just send-and-wait. New Stop hook
+  `hooks/stop-inbox-check.sh` (gated to ultraloop **team sessions**: `TEAM_NAME` + an ultraloop config, so it serves both crew lanes
+  and multi-repo workers; fail-open): at every turn end, if the cc-hub inbox has unconsumed messages it **blocks the stop and injects
+  them**, so an active session handles them at the next turn boundary instead of going idle up to `idle_wakeup_seconds`. New
+  `scripts/crew_notify.sh`: durable cc-hub send **+ `tmux send-keys` wake** so an idle session reacts now (wake promoted from
+  best-effort to standard). Messages are board pointers (SoT), so a missed wake loses nothing — the session recovers from the board.
+  e2e-verified against a live cc-hub (block / allow / gate / durable delivery / session-state sync).
+
+### Fixed
+- **Worktree lane infinite loop** (crew / multi-worktree) — a lane runs its own cc session with the same `/goal` Stop gate, which
+  evaluated the **whole board**; a lane whose own slice was Done could never satisfy "all cards Done" (and never had the cwd-local
+  `prod-deployed` marker), so the gate blocked its stop forever. `goal_check.sh` now detects a worktree cwd and **defers the DoD to
+  `main`** (`engine.goal.lane_defer`, default true): the lane stops when its own work is done and is re-woken by the active-comms wake;
+  `main` (repo root) still holds the global board goal. Single-session (in-process lanes = subagents, no Stop hook) and multi-repo
+  (workers sit at their repo root, already board-filtered) do not match the worktree cwd → unaffected. e2e-verified.
+
 ## 0.10.0
 
 Published together with 0.9.0 below as a single release commit.

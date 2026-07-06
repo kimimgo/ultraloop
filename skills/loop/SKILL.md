@@ -61,8 +61,13 @@ You pace yourself with `/loop` and gate stops with `/goal`, proceeding unattende
    Tier2 (pre-merge production E2E) follows `${CLAUDE_PLUGIN_ROOT}/references/e2e-production.md`. Both must pass to merge.
 4. **Honest atomic commits** — one commit = one logical change. Body in the product's working language (`references/messaging.md`).
 5. **★ E2E before merge** — only code that passed pre-merge production E2E with capture evidence enters main.
-6. **★ Board = consume-only (read / move cards / comment).** You do **not define** roadmap, milestones, scope, or priorities —
-   that is `ultraloop:pm`'s authority. New cards only to record *bugs/edge cases found during implementation* (no scope expansion ❌).
+6. **★ Board authority = the milestone envelope (see `config.engine.autonomy`).** You never define **strategic scope** —
+   roadmap, milestones, Initiatives/Epics, priorities, and the north star are `ultraloop:pm`'s authority. Under `autonomy: milestone`
+   (the shipped default; an older config missing the key = `card`, i.e. the unchanged 0.10 behavior) you MAY breed your own
+   **tactical TDD cards inside the ACTIVE milestone envelope**, admissible only through the three
+   envelope gates (a Goal-link to the active milestone's goal · no anti-goal conflict · no new milestone/Epic — `references/north-star.md` §4.5).
+   Under `autonomy: card` you execute pre-written cards only (new cards limited to bugs/edges). Either way, any card that crosses the
+   milestone boundary escalates to pm — no unilateral scope expansion ❌.
 7. **★ Log faithfully to the board (collaboration discipline, §3).** Execute milestones faithfully, and leave start/progress/blocked/done comments on every card.
 8. **★ No tool identity exposure** — never write `ultraloop`, skill names, agents, automation, or `lane` in the outward-visible text of
    boards, issues, PRs, or commits. Human-written product language only. (`references/messaging.md` · FM14)
@@ -76,9 +81,10 @@ You pace yourself with `/loop` and gate stops with `/goal`, proceeding unattende
 | Can do | Cannot do (pm's domain) |
 |---|---|
 | Code branch/commit/push/PR/merge, build/test/E2E | **Defining/creating** roadmap, milestones, Initiative/Epic |
-| Card status moves (Ready→In-Progress→Done) | Scope and priority decisions |
+| Card status moves (Ready→In-Progress→Done) | Scope/priority decisions · north-star or milestone-goal edits |
 | Writing progress/blocked/done **comments** | Board structure changes (`gh project create/field-create`) |
-| Registering **new issues** for found bugs/edges | Breeding new planning cards (scope expansion) |
+| Registering **new issues** for found bugs/edges | Cards crossing the milestone envelope (new milestone/Epic · anti-goal) |
+| **[autonomy: milestone]** Breeding tactical TDD cards INSIDE the active milestone envelope (3-gate, north-star.md §4.5) | Any bred card without a valid Goal-link to the active milestone |
 
 > loop is an autonomous loop and uses tools broadly (`ScheduleWakeup`/`Monitor`/`Task`/`Workflow`/Bash/file tools etc. — which is why
 > allowed-tools is not narrowed). The no-roadmap-definition rule is kept by the rules above + (for hard enforcement) a PreToolUse hook
@@ -133,6 +139,12 @@ Precise procedure = `${CLAUDE_PLUGIN_ROOT}/references/loop-protocol.md`. One loo
 - A high-risk lane parks only itself (Parked + approval queue, `approval_queue.sh`); the other lanes continue.
 - N-repo mode (`config.repos` with 2+) follows `references/multi-repo-orchestration.md` — worker spawn uses the tmux session backend
   (external session manager optional, session name = basename), spawn authority is meta-only (no recursive spawn).
+- Crew mode (`config.crew.enabled: true`) follows `references/crew-mode.md` — a single repo run as **`main` + N ows worktree lanes**
+  `<project>~<slug>` (**human-attachable siblings**). Built **on ows, not reimplemented**: lanes via `ows wt-spawn`, sync via `ows wt-sync`,
+  the lane role + sibling awareness + `TEAM_NAME` inbox from the ows `worktree-context` SessionStart hook, coordination via team_inbox
+  (lanes report to `main`). Board ownership = a **product-language workstream** (Epic / Workstream field, feature-named — never a
+  `wt`/`lane`/session-id label, messaging §5) with **assignee as the lock**; name the worktree after the workstream so slug == field
+  value. One card per lane (max_lanes=1); lanes are spawned only by `main`/a human (no recursion).
 
 ---
 
@@ -162,5 +174,6 @@ Precise procedure = `${CLAUDE_PLUGIN_ROOT}/references/loop-protocol.md`. One loo
 | Hierarchical CI, HITL deployment | `${CLAUDE_PLUGIN_ROOT}/references/ci-cd-hitl.md` |
 | Definition of done (exit condition) | `${CLAUDE_PLUGIN_ROOT}/references/definition-of-done.md` |
 | N-repo meta orchestration | `${CLAUDE_PLUGIN_ROOT}/references/multi-repo-orchestration.md` |
+| Crew mode (single repo, N flat ows peers, card-lock, human-as-peer) | `${CLAUDE_PLUGIN_ROOT}/references/crew-mode.md` |
 | Dependency skill map (orchestration targets) | `${CLAUDE_PLUGIN_ROOT}/references/dependencies.md` |
 | Workflow enforcement (opus·ultracode·dynamic) | `${CLAUDE_PLUGIN_ROOT}/references/workflow-orchestration.md` |

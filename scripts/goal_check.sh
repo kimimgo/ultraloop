@@ -16,6 +16,17 @@ REPO="$(ue_repo)"
 COND="$(cfg_get engine.goal.condition DoD)"
 fail() { echo "$1"; exit 1; }
 
+# 0-lane) Worktree LANE (crew / multi-worktree) — the machine DoD belongs to MAIN, not a lane.
+#   A lane is not responsible for GLOBAL board completion or the production deploy, so gating it on the whole board is
+#   an infinite loop: its own slice can be Done while the board is not → goal never "met" → the Stop gate blocks forever.
+#   A lane's continuation is driven by its own /loop (it picks its next assigned card at ①) and re-engaged by the crew
+#   wake; the gate here must not trap it. Detection = cwd under a worktree dir (ows `.worktrees/`, ultraloop `.ue-worktrees/`).
+#   MAIN (repo root) and multi-repo workers (repo root, already board-filtered) do NOT match → unaffected. Override: engine.goal.lane_defer:false.
+case "$PWD" in
+  */.worktrees/*|*/.ue-worktrees/*)
+    [ "$(cfg_get engine.goal.lane_defer true)" = "true" ] && exit 0 ;;
+esac
+
 # Free-form condition cannot be auto-judged → hand off to agent judgment (conservatively not met, but state the reason)
 if [ "$COND" != "DoD" ]; then
   fail "condition=$COND — the agent must judge fulfillment directly (not machine-verifiable)"

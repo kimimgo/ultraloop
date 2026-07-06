@@ -71,6 +71,21 @@ engine:
                                   #   allow the stop + escalate. Blocks busywork/429 storms at the DoD ceiling (all remaining
                                   #   cards parked/blocked) (references/failure-modes.md FM1). 0 = disabled.
     lock_file: ""                 # concurrent re-entry lock (empty = the script uses a per-uid default path)
+    lane_defer: true              # ★ in a worktree LANE (crew / multi-worktree), defer the DoD to MAIN — a lane is not
+                                  #   responsible for GLOBAL board completion, so gating it on the whole board = an infinite loop
+                                  #   (its slice Done, board not → never "met"). true (default) = a lane whose cwd is under a worktree
+                                  #   dir allows its own stop; main (repo root) + multi-repo workers (repo root) are unaffected. false = old behavior.
+  # ── ★ loop autonomy (v0.11) — where the pm↔loop permission boundary is drawn ──────────────────
+  #   card      = loop executes pre-written cards only; every new card is pm's (the v0.10 behavior).
+  #   milestone = loop may BREED its own tactical TDD cards INSIDE the active milestone envelope (recommended).
+  #               Envelope gate (north-star.md §4.5) — a bred card is admissible only if ALL hold:
+  #               (a) it carries a Goal-link: to the ACTIVE milestone's goal,
+  #               (b) it does not advance any north-star anti-goal,
+  #               (c) it creates NO new milestone / Initiative / Epic (structural scope stays pm's).
+  #               Strategic scope (new milestone/Epic, anti-goal boundary, north-star change) still escalates to pm.
+  #   epic      = the same envelope one tier up (active Epic). Stronger autonomy, weaker pm control → scope-drift risk.
+  autonomy: milestone           # card | milestone (recommended, shipped default) | epic  ·  pairs with goal.scope above
+                                #   (an older config missing this key = card → unchanged 0.10 behavior, so upgrades are backward compatible)
 
 # ── §15 cost/time/observability ceilings (exceeding = safe stop = budget-stop, exit 7) ───────────
 budgets:
@@ -143,6 +158,22 @@ worktree:
   root: "../.ue-worktrees"        # lane worktree root
   base_ref: "fresh"               # branch base for isolated lanes — fresh=origin/<default> (recommended: reproducible, no unpushed work leaks in) | head=local HEAD (build on unpushed commits)
                                   #   bootstrap_repo.sh records this value as worktree.baseRef in the target repo .claude/settings.json
+
+# ── ★ crew mode (v0.11) — single repo · one board · ows worktree LANES as human-attachable peers ──
+#   The single-repo shape of N-repo meta/worker, but lanes are ows worktree sessions <project>~<slug> (a human can attach to any).
+#   Built ON ows — does NOT reimplement: lanes = `ows wt-spawn`, sync = `ows wt-sync`, lane role + sibling awareness + TEAM_NAME inbox =
+#   the ows worktree-context SessionStart hook, coordination = team_inbox (lanes report to `main`). Card ownership = a product-language
+#   WORKSTREAM on the board (Epic / Workstream field, feature-named — never a `wt`/`lane`/session-id label, messaging §5) + assignee as the
+#   lock; name the worktree after the workstream so slug == field value. No recursion: only `main`/a human spawns lanes.
+#   Authority: references/crew-mode.md.  (enabled:false = existing single-session behavior, fully backward compatible.)
+crew:
+  enabled: false                  # true = run under crew (main coordinator + ows worktree lanes; each lane = the ordinary loop, one card, max_lanes→1)
+  channel: auto                   # coordination channel: auto (team_inbox / cc-hub HTTP if present, else send_keys) | broker | send_keys
+  crew_channel: ""                # team_inbox room name for this crew (empty = "<repo-basename>-crew")
+  report_to: main                 # the team_inbox hub lanes report to — matches the ows worktree-context hook's report target
+  claim_jitter_seconds: 4         # self-serve claim only: arbitration window — re-read after this to resolve races (earliest broker timestamp wins)
+  claim_ttl_minutes: 45           # self-serve claim only: a claim by a vanished lane expires after this → the card is reclaimable
+  # lane sessions are named <project>~<slug> by ows (not registry-tracked; `git worktree list` is the SoT) — no prefix knob needed.
 
 # ── ★ Workflow orchestration (Claude Code Workflow tool — opus·ultracode·dynamic) ──────────
 #  ⚠️ "Workflow" here means the **Claude Code Workflow tool (multi-agent orchestration)**. It is entirely different from GitHub Projects

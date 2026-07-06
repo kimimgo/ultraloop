@@ -90,6 +90,7 @@ bash .../roadmap_status.sh set ON_TRACK "Wave 0 in progress" --target 2026-12-31
 | `roadmap_dep.sh` | Native dependencies `add`/`rm`/`list` (blocked-by). |
 | `roadmap_view.sh` | `check` — **reads** the views (ROADMAP_LAYOUT present or not) · workflows (enabled) · fields to **verify the setup**. Lets an unattended skill self-check that the golden template was applied. |
 | `roadmap_status.sh` | Native project status updates `set`/`list` (ON_TRACK/AT_RISK/OFF_TRACK/COMPLETE/INACTIVE). |
+| `roadmap_readme.sh` | Board **README/short description** `get`/`set`/`cache` (`ProjectV2.readme`) — the project brief (linked repos · collaborators · special project rules) lives on the board=SoT so humans see it and a fresh session can `cache` it into a local mirror to know the context immediately. `--pnode` override lets a higher loop pass its own node id. ⚠️ Product working language, no tool names (ghostwriter rule). |
 | `_lib.sh` | Shared helpers (cfg_get·gq·owner/issue/repo node·add_item·set_field). All graphql (gh version agnostic). |
 
 Assets: `assets/fields.json` (field definitions) · `assets/add-to-project.yml` (auto-add workflow) · `assets/template-spec.md` (golden template checklist).

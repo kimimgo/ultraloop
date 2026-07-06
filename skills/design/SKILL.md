@@ -97,7 +97,8 @@ and an **approved design system**, pulled up to a level that is **verifiable by 
                 No GENERATE entry without this step.
 3.  CRITIQUE    If existing mockups exist, cold multi-model evaluation (§IRON 2): codex+gemini × N angles → ranked gaps + baseline score.
                 (If none, substitute reference/competitor scans.)
-4.  FOUNDATION  Establish the design system: taste-design for DESIGN.md (anti-slop tokens) → Stitch designSystem asset.
+4.  FOUNDATION  Establish the design system: taste-design for DESIGN.md (anti-slop tokens) →
+                ★**taste-skill (if present): audit-first, no-template anti-slop DIRECTION** (so the system does not read as generic AI) → Stitch designSystem asset.
                 (gstack design-consultation, if present, is a strong FOUNDATION companion — full system proposal with
                 font/color previews; human present, interactive is fine. dependencies.md §4.)
                 App shell (left tree, center focus, right agent, etc.) + a single studio/domain ontology pinned.
@@ -106,7 +107,8 @@ and an **approved design system**, pulled up to a level that is **verifiable by 
                 required elements, reactions). Collect HTML+png (htmlCode.downloadUrl / screenshot=w<width>).
 6.  INTEGRATE   Token normalization (neon→brand colors, contrast fixes) → ★cross-nav wiring = exactly the FLOW.md transition
                 coverage list (text matching; no visible pill switcher) → make declared reactions/states (empty/error variants) reachable →
-                **inject real data canvases** (domain charts: log residuals+legend+tol lines, time series, overlays, field maps) → single self-host.
+                **inject real data canvases** (domain charts: log residuals+legend+tol lines, time series, overlays, field maps) →
+                ★**impeccable (if present): tighten visual hierarchy · IA · cognitive load · a11y · motion · microcopy across the integrated screens** → single self-host.
 7.  ★AUDIT      Deterministic detail gate (inject+evaluate assets/design/audit.js on every page via playwright): text clipping
                 (clipped), font drift, dead-button candidates, shell signals, horizontal overflow, low contrast = fix until **0 violations**.
                 (gstack design-review, if present, adds a designer-eye pass ALONGSIDE the machine gate — never instead of it.
@@ -116,7 +118,8 @@ and an **approved design system**, pulled up to a level that is **verifiable by 
 9.  RE-SCORE    ★Walkthrough first — give the cold models only FLOW's tasks (answers undisclosed) and have them *perform* them as the persona:
                 where they clicked, what they expected, where they got stuck → stuck points and "why does this button exist?" = ranked gaps.
                 Then cold re-scoring (framing what was fixed + attaching the mockups) → new score + remaining gaps.
-10. ITERATE     Fix the top gaps → repeat 7·8·9 (AUDIT stays green at all times). Until the target score is reached.
+10. ITERATE     Fix the top gaps (★**impeccable, if present, drives the UI-craft fixes: hierarchy / IA / a11y / motion / microcopy**) →
+                repeat 7·8·9 (AUDIT stays green at all times). Until the target score is reached.
                 (Score stalled across two rounds? gstack design-shotgun, if present, generates variant boards to break the plateau.)
 11. HANDOFF     Final mockup hosting + Discord + accumulation. Hand the approved DESIGN.md+FLOW.md to pm (pm quotes them into
                 board cards as design acceptance criteria + E2E scenario seeds).

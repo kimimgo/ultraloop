@@ -59,9 +59,30 @@ The goal is recalled **by structure, not memory**:
 4. **Milestone close-out**: when the last card goes Done, leave a comment on the milestone answering §2's verdict question
    with Yes/No. If No, it is not Done — record the gap as a new issue (within bug/edge authority) and escalate to pm.
 
+## 4.5 Tactical-card breeding gate (loop side — only under `config.engine.autonomy: milestone`)
+
+Milestone-envelope autonomy lets loop **decompose** the active milestone into its own TDD-sized cards instead of waiting for pm to
+pre-write every one. This is **tactical decomposition, not scope definition** — the milestone contract (goal + verdict + anti-goals
++ acceptance criteria) is the fixed envelope; loop only fills it in. A bred card is admissible only when **all three** hold:
+
+1. **(a) Goal-link** — the card body carries a `Goal-link:` to the **active milestone's** goal (§3). No link → not a card.
+2. **(b) Anti-goal clear** — it advances nothing on the north-star anti-goal list (§1). A conflict is a scope signal, not a card →
+   `blocked` + pm escalation (§4.3), never bred.
+3. **(c) No new structure** — it creates **no** new milestone / Initiative / Epic and edits no milestone goal or the north star.
+   Structural scope stays pm's alone (§5). Breeding one is a hard violation → escalate.
+
+A bred card enters the active milestone with the same 3-piece set as a pm card (Goal-link + acceptance criteria + E2E scenario) and
+a start comment noting it was decomposed from the milestone's acceptance criteria (product working language, no tool names —
+messaging.md). At milestone close (§4.4) the verdict question judges the envelope as a whole, so over-breeding is **self-correcting**:
+a card that does not move the verdict is a §3 filler and should not have been born.
+
+Under `autonomy: card` this section does not apply — loop breeds only bug/edge cards (the v0.10 behavior), and every planning card is pm's.
+
 ## 5. Boundaries
 
-- **Defining/modifying the north star and milestone goals is pm's authority alone** (loop only reads, quotes, escalates).
+- **Defining/modifying the north star and milestone GOALS is pm's authority alone** (loop only reads, quotes, escalates).
+  Tactical **card** decomposition *within* an already-approved milestone is loop's under `autonomy: milestone` (§4.5) — the goals
+  and the envelope stay pm's; only the fill-in cards are loop's.
 - `goal_check.sh` does machine verification only — the Yes/No of the verdict question falls to the agent + human (§4.4).
 - v0.10: per-milestone goals DO get a machine counterpart — `engine.goal.scope: "milestone:<title>"`
   scopes the goal gate, the Ready pick, and the deploy marker to that milestone

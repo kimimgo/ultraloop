@@ -17,8 +17,8 @@ Availability check: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/design_env_check.sh`.
 | Tool | Use for |
 |---|---|
 | **artifact-design** | Self-contained production-grade HTML artifact: brainstorm tokens→critique→commit palette→build. The right skill for a single self-hosted mockup file. |
-| **taste-skill** | Anti-slop frontend (landing/portfolio/redesign), audit-first, no-template. |
-| **impeccable** | UI improvement: hierarchy, IA, cognitive load, a11y, motion, microcopy, theming. |
+| **taste-skill** ★ | Anti-slop frontend (landing/portfolio/redesign), audit-first, no-template. **Call at FOUNDATION (anti-slop DIRECTION) + CRITIQUE (audit-first on existing mockups).** |
+| **impeccable** ★ | UI improvement: hierarchy, IA, cognitive load, a11y, motion, microcopy, theming. **Call at INTEGRATE (polish the integrated screens) + ITERATE (drive the top-gap fixes).** |
 | **frontend-design** (plugin) | Distinctive production frontend; avoids generic AI aesthetic. |
 
 ## Evaluation (the GAN scoring loop — the differentiator)

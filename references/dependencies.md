@@ -33,6 +33,9 @@ silently degrade on absence — leave a clear note in the PROGRESS view/console.
 
 | Stage | Skill invoked (if present) | ultraloop role |
 |---|---|---|
+| **Design system** (design skill, runs before pm) | `taste-design` · **`taste-skill`** (anti-slop direction, audit-first) | DESIGN.md foundation — full map in `design-tools-map.md` |
+| **Design craft/polish** (design skill) | **`impeccable`** (hierarchy·IA·a11y·motion·microcopy) · `artifact-design` · `frontend-design` | Mockup polish at INTEGRATE + top-gap fixes at ITERATE |
+| **Design eval (GAN)** (design skill) | `tri-model-review` · codex/gemini cold | Score mockups until the target |
 | Strategy | `product-strategy` | Receive the product strategy canvas |
 | Roadmap | `outcome-roadmap` | output→outcome roadmap (checked every loop) |
 | Adversarial validation | `strategy-red-team` | Attack assumptions + kill criteria — **no spec entry without passing** |

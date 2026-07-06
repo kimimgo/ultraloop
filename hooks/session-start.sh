@@ -14,3 +14,12 @@ done
 
 LINE="$(bash "$SDIR/../scripts/status.sh" --line 2>/dev/null)"
 printf '🔁 ultraloop active project — %s\n' "${LINE:-(board not yet tallied)}"
+
+# Project-context brief — the local mirror of the board README (SoT). Cache-only (no graphql → no session-start delay):
+#   linked repos / collaborators / special project rules, so a fresh session knows the context immediately.
+#   Refreshed from the board by the loop (best-effort) or by hand: gh-roadmap roadmap_readme.sh cache.
+CTX="$cfg/.claude/.ultraloop-context.md"
+if [ -s "$CTX" ]; then
+  printf '\n📌 project context (board README mirror) —\n'
+  sed -e '/^<!--/,/-->/d' -e '/^[[:space:]]*$/d' "$CTX" 2>/dev/null | head -40
+fi

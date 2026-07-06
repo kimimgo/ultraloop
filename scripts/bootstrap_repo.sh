@@ -117,6 +117,14 @@ else
   echo "    ⚠️ roadmap layout views and built-in workflows need the golden template (no API creation) — installing gh-roadmap recommended."
 fi
 
+# ── 2.5 project-context mirror ← board README (SoT). Best-effort — pulls only when the board already exists (BP#context). ──
+if [ -n "$PNODE" ] && [ -n "$GHR_DIR" ] && [ -f "$GHR_DIR/scripts/roadmap_readme.sh" ]; then
+  echo "[context ← board README]"
+  CTX_MSG="$(bash "$GHR_DIR/scripts/roadmap_readme.sh" cache .claude/.ultraloop-context.md --pnode "$PNODE" 2>/dev/null)"
+  [ -n "$CTX_MSG" ] && echo "  ✓ context mirror refreshed from the board README (SessionStart injects it)" \
+    || echo "  · board README empty — the seeded scaffold stands (fill .claude/.ultraloop-context.md, then roadmap_readme.sh set)"
+fi
+
 # ── 3. copy templates/workflows ─────────────────────────────────────────────
 echo "[templates]"
 mkdir -p .github/workflows .github/ISSUE_TEMPLATE
@@ -129,6 +137,8 @@ cp -n "$SKILL_DIR/assets/pr_template.md" .github/pull_request_template.md 2>/dev
   echo "  · auto-add.yml copied (PROJECT_URL and ADD_TO_PROJECT_PAT secrets must be substituted — golden-template-setup §C)" || true
 [ -f PROGRESS.md ] || cp "$SKILL_DIR/assets/PROGRESS.template.md" PROGRESS.md 2>/dev/null || true
 [ -f CLAUDE.md ]   || cp "$SKILL_DIR/assets/CLAUDE.template.md" CLAUDE.md 2>/dev/null || true
+# Project-context mirror — a fillable scaffold so a fresh SessionStart has something to show; the board README is the SoT (§2.5 pulls it).
+[ -f .claude/.ultraloop-context.md ] || { mkdir -p .claude; cp "$SKILL_DIR/assets/CONTEXT.template.md" .claude/.ultraloop-context.md 2>/dev/null && echo "  · seeded .claude/.ultraloop-context.md (fill it: repos, collaborators, project rules → publish with gh-roadmap roadmap_readme.sh set)"; }
 # specs/ placeholder (Spec Kit spec originals, §4.1.3). specify init is run by the agent at the gate — bootstrap only makes the spot.
 mkdir -p "$(cfg_get spec.specs_dir specs)" 2>/dev/null && : > "$(cfg_get spec.specs_dir specs)/.gitkeep" 2>/dev/null || true
 echo "  ✓ workflows/issue/pr/PROGRESS/CLAUDE/specs seeded (only when absent)"

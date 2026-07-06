@@ -37,6 +37,17 @@ the per-loop workflow is composed dynamically based on issue nature · stack · 
 > In N-repo shared-board mode, ① additionally includes a **self inbox check** (MCP team_inbox_peek/team_inbox_consume, or HTTP
 > `GET /team/inbox/<session-name>?consume=true`, example broker API) — the meta layer's instructions persist in the message broker (`multi-repo-orchestration.md §5`).
 
+> **Context mirror refresh (① plan check, best-effort)**: refresh the local project-context mirror from the board README (SoT) so a
+> fresh session injects current context — `roadmap_readme.sh cache .claude/.ultraloop-context.md` (one cheap read; skip on failure). pm
+> writes/updates the board README on scope change; this keeps the SessionStart brief (linked repos · collaborators · project rules) live.
+
+> **Tactical breeding (① plan check — only under `config.engine.autonomy: milestone`)**: after the strategy-consistency check, if the
+> active milestone (`goal.scope`) still has open acceptance criteria not covered by any Ready/In-Progress card, loop **decomposes them
+> into TDD-sized cards** through the 3-gate (Goal-link to the active milestone · no anti-goal conflict · no new milestone/Epic —
+> `north-star.md §4.5`), creates them idempotently with `issue_populate.sh`, and places them Ready with the 3-piece set — feeding ② lane
+> forming. Under `autonomy: card`, skip this: only pm's pre-written Ready cards are picked. Strategic drift still routes to gate re-entry
+> (§roadmap-model 5.1), never to breeding.
+
 ## 1. Principles
 - **E2E is pre-merge (⑥)** — only E2E-passing code lands on main. Preserves "main always deployable" (REQ-LOOP-1).
 - **✅ only with execution evidence** — "it ran" ≠ "it is correct" (REQ-LOOP-2).

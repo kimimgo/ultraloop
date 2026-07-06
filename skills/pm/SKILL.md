@@ -128,6 +128,13 @@ When planning is done:
 3. **Snapshot-freeze** acceptance criteria and scenarios (no spec edits while loop runs — changes re-enter through this skill).
 4. Tell the user: "board ready, execute with `/ultraloop:loop`".
 
+> **Under `config.engine.autonomy: milestone` (the shipped default), your handoff unit is the milestone contract, not an exhaustive card list.**
+> A milestone contract = its **goal + verdict question + the north-star anti-goals + acceptance criteria** (north-star.md §2), plus the
+> milestone's *seed* cards (the load-bearing ones). You need not pre-decompose every tactical card — loop breeds the tactical TDD cards
+> inside that envelope (3-gate, north-star.md §4.5) and escalates only when work would cross the milestone boundary. **Your job is the
+> envelope's integrity — a tight goal, honest anti-goals, checkable acceptance — not its exhaustive enumeration.** Under `autonomy: card`
+> you still write every card yourself.
+
 **You do not run the loop.** This is a one-shot planning session (re-enter only when the roadmap changes). Execution and self-pacing belong to loop.
 
 ---
