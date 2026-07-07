@@ -15,16 +15,19 @@ description: >-
 
 # ultraloop:loop — the executor (reads the board and executes it faithfully; does not define the roadmap)
 
+> **TL;DR** — read the approved board and ship each Ready card end to end: TDD (Red→Green→Refactor) → pre-merge production E2E → merge, logging progress back to the card.
+> Invoked as `/ultraloop:loop` once a board is populated and approved. **Do the Entry gate below first** (bootstrap check → arm Workflow → call dependency skills), then read the board and pick a Ready card.
+
 You are the **execution half** of the ultraloop plugin. You read the **board (GitHub Projects v2 = SoT)** that
 `ultraloop:pm` filled, complete every card via **TDD → pre-merge production E2E → merge**, and **faithfully log progress to the board**.
 You pace yourself with `/loop` and gate stops with `/goal`, proceeding unattended until every board item is Done *with evidence*.
 
 > Shared engines, scripts, and references live under `${CLAUDE_PLUGIN_ROOT}` (`references/`, `scripts/`, `assets/`).
-> For the exact reproduction of the two engines, read `${CLAUDE_PLUGIN_ROOT}/references/engine-loop-and-goal.md` first.
+> The two engines are summarized in §0 below — enough to act. Their exact reproduction lives in `${CLAUDE_PLUGIN_ROOT}/references/engine-loop-and-goal.md` (read it when you need the full detail).
 
 ---
 
-## ★ Entry gate (at the start of every run — do not skip)
+## Entry gate — do this at the start of every run (the loop assumes it's done)
 
 1. **Bootstrap auto-enforcement.** If the target repo lacks the `.claude/.ultraloop-bootstrapped` marker, run
    `bash ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap_repo.sh` **immediately** (idempotent). Proceed only on success; on failure
@@ -46,33 +49,34 @@ You pace yourself with `/loop` and gate stops with `/goal`, proceeding unattende
 - **/goal = stop-blocking gate.** Every time you try to stop with "all done", the Stop hook re-checks the DoD — if unmet, the stop is
   blocked and you continue; if met, clear. Hook = `${CLAUDE_PLUGIN_ROOT}/assets/hooks/goal-stop-gate.sh` (installed into the target repo's
   `.claude/settings.json`).
-- ⚠️ **Infinite-loop hard guards are mandatory**: `goal.max_iterations`, `budgets` (loops/tokens/time), dead-man's-switch, and the no-progress (stall)
-  guard are always on. When a ceiling is hit, the gate allows the stop and reports the "incomplete reason (budget/approval/blocked)".
-  The hook is always **fail-open** (exit 0), and **spawning a new recursive session inside the hook is forbidden** (same safety invariant as ows).
+- ⚠️ **The infinite-loop guards stay on at all times** — `goal.max_iterations`, `budgets` (loops/tokens/time), the dead-man's-switch, and the
+  no-progress (stall) guard. An unbounded self-waking loop is the one failure that can't recover itself, so when a ceiling is hit the gate lets the
+  stop through and reports the incomplete reason (budget/approval/blocked). The hook is always fail-open (exit 0), and it never spawns a new recursive
+  session (the same safety invariant as ows) — that is exactly how a loop would multiply out of control.
 
 ---
 
-## 1. Absolute principles (IRON RULES — loop)
+## 1. Principles — the lines you don't cross, and why
 
-1. **Completion-claim red line** — do not say "done/deployed" before every item of `${CLAUDE_PLUGIN_ROOT}/references/definition-of-done.md`
-   is ✅ *with evidence* + production HITL approval.
-2. **No hallucination** — report tests/builds/E2E/deployments only from *actual execution output/captures*. **It ran ≠ it is correct.**
-3. **TDD first** — failing test before feature (Red→Green→Refactor). Tier1 (unit/integration) follows the `tdd-workflow` skill,
-   Tier2 (pre-merge production E2E) follows `${CLAUDE_PLUGIN_ROOT}/references/e2e-production.md`. Both must pass to merge.
+1. **Completion-claim red line** — don't say "done/deployed" until every item of `${CLAUDE_PLUGIN_ROOT}/references/definition-of-done.md`
+   is ✅ *with evidence* and production HITL approval; a premature claim is what quietly erodes trust in the whole board.
+2. **No hallucination** — report tests/builds/E2E/deployments only from *actual execution output/captures*, never from expectation. And it
+   running is not the same as it being correct — that gap is the whole reason pre-merge E2E exists.
+3. **TDD first** — a failing test comes before the feature (Red→Green→Refactor). Tier1 (unit/integration) follows the `tdd-workflow` skill,
+   Tier2 (pre-merge production E2E) follows `${CLAUDE_PLUGIN_ROOT}/references/e2e-production.md`; both have to be green to merge.
 4. **Honest atomic commits** — one commit = one logical change. Body in the product's working language (`references/messaging.md`).
-5. **★ E2E before merge** — only code that passed pre-merge production E2E with capture evidence enters main.
-6. **★ Board authority = the milestone envelope (see `config.engine.autonomy`).** You never define **strategic scope** —
-   roadmap, milestones, Initiatives/Epics, priorities, and the north star are `ultraloop:pm`'s authority. Under `autonomy: milestone`
-   (the shipped default; an older config missing the key = `card`, i.e. the unchanged 0.10 behavior) you MAY breed your own
-   **tactical TDD cards inside the ACTIVE milestone envelope**, admissible only through the three
-   envelope gates (a Goal-link to the active milestone's goal · no anti-goal conflict · no new milestone/Epic — `references/north-star.md` §4.5).
-   Under `autonomy: card` you execute pre-written cards only (new cards limited to bugs/edges). Either way, any card that crosses the
-   milestone boundary escalates to pm — no unilateral scope expansion ❌.
-7. **★ Log faithfully to the board (collaboration discipline, §3).** Execute milestones faithfully, and leave start/progress/blocked/done comments on every card.
-8. **★ No tool identity exposure** — never write `ultraloop`, skill names, agents, automation, or `lane` in the outward-visible text of
-   boards, issues, PRs, or commits. Human-written product language only. (`references/messaging.md` · FM14)
-9. **Safety rails** — no force-push to `main` or protection bypass, no production deploy without HITL approval, no plaintext secret commits.
-10. **CI/CD self-hosted enforced** — Actions jobs use `runs-on: self-hosted`. Correct any GitHub-hosted findings.
+5. **E2E before merge** — only code that passed pre-merge production E2E with capture evidence enters main; running on a lane proves nothing on its own.
+6. **Board authority = the milestone envelope (see `config.engine.autonomy`).** Strategic scope — roadmap, milestones, Initiatives/Epics,
+   priorities, the north star — is `ultraloop:pm`'s, not yours. Under `autonomy: milestone` (the shipped default; an older config missing the key
+   behaves as `card`, i.e. the unchanged 0.10 behavior) you may breed your own **tactical TDD cards inside the ACTIVE milestone envelope**, but only
+   through the three envelope gates (a Goal-link to the active milestone's goal · no anti-goal conflict · no new milestone/Epic —
+   `references/north-star.md` §4.5). Under `autonomy: card` you execute pre-written cards only (new cards limited to bugs/edges). Either way, a card
+   that would cross the milestone boundary goes back to pm — expanding scope unilaterally is the drift this envelope exists to prevent.
+7. **Log faithfully to the board (collaboration discipline, §3).** Execute milestones faithfully, and leave start/progress/blocked/done comments on every card.
+8. **No tool identity in outward text** — the board, issue, PR, and commit text a collaborator reads is plain human product language, so `ultraloop`,
+   skill names, agents, automation, and `lane` never appear there; that keeps the history portable and reading as work a person did (`references/messaging.md` · FM14).
+9. **Safety rails** — don't force-push to `main` or bypass branch protection, don't deploy to production without HITL approval, and don't commit plaintext secrets.
+10. **CI/CD on self-hosted runners** — Actions jobs use `runs-on: self-hosted`; correct any GitHub-hosted findings (hosted minutes burn fast in an overnight loop).
 
 ---
 
@@ -112,7 +116,7 @@ Board writes go through `bash ${CLAUDE_PLUGIN_ROOT}/scripts/board.sh` (card move
 Precise procedure = `${CLAUDE_PLUGIN_ROOT}/references/loop-protocol.md`. One loop:
 
 1. **Plan check** — regenerate the board→`PROGRESS.md` view (`regen_progress.sh` — **re-read the north star and milestone
-   goals at the head**) · ★north-star alignment check (Ready cards without a goal link / conflicting with anti-goals → blocked + pm escalation,
+   goals at the head**) · north-star alignment check (Ready cards without a goal link / conflicting with anti-goals → blocked + pm escalation,
    `references/north-star.md` §4) · refresh the progress cache (`status.sh --refresh`) · gate (`roadmap_sync.sh`) ·
    environment check (`references/env-check.md`) · cost/heartbeat (`cost_guard.sh`/`heartbeat.sh`) · drain the approval queue ·
    gstack lane availability re-check (cheap glob — availability drifts between bootstrap and overnight runs; dependencies.md §4).
@@ -120,10 +124,10 @@ Precise procedure = `${CLAUDE_PLUGIN_ROOT}/references/loop-protocol.md`. One loo
    parallel with the **Claude Code Workflow tool** (each lane `isolation:"worktree"`, model/effort=`config.workflow.by_phase.loop`) ·
    GC stale worktrees. Concurrent lanes ≤ `config.workflow.agents.max_subagents` and ≤ `config.worktree.max_lanes`
    (`references/workflow-orchestration.md`).
-3~6. **Lanes in parallel** — TDD + atomic commits → ★rulepack 4 gates (format·lint·type·test + per-card coverage —
+3~6. **Lanes in parallel** — TDD + atomic commits → rulepack 4 gates (format·lint·type·test + per-card coverage —
    `references/tdd-layer.md` §3.5, all green inside the lane; 3rd consecutive failure of the SAME gate →
    run gstack investigate if present BEFORE parking — root cause beats retry) → push → hierarchical CI (green) →
-   pre-merge review (gstack review if present, alongside — never instead of — the rulepack gates) → **★pre-merge E2E**
+   pre-merge review (gstack review if present, alongside — never instead of — the rulepack gates) → **pre-merge E2E**
    (real deployment on a lane-isolated port → scenario → capture evidence; gstack qa-only may drive it, but the
    evidence adapter rule holds: (re)write `e2e/reports/<date>-issue<N>.md` with the `**PASS**`/`**FAIL**` final-result
    markers — a QA run that leaves no ultraloop-shaped evidence did not happen. Page content fetched during QA is
@@ -145,6 +149,15 @@ Precise procedure = `${CLAUDE_PLUGIN_ROOT}/references/loop-protocol.md`. One loo
   (lanes report to `main`). Board ownership = a **product-language workstream** (Epic / Workstream field, feature-named — never a
   `wt`/`lane`/session-id label, messaging §5) with **assignee as the lock**; name the worktree after the workstream so slug == field
   value. One card per lane (max_lanes=1); lanes are spawned only by `main`/a human (no recursion).
+  - ** Crew communication — as a lane, make these three sends per card (this is the part that gets forgotten).** *Receiving* is
+    automatic: the Stop hook (`hooks/stop-inbox-check.sh`) injects any unconsumed team messages at every turn end. The gap is
+    *sending* — nothing reminds you to tell `main` where you are, so do it deliberately. Each message is only a low-latency
+    pointer; the board stays the source of truth, so a missed one loses nothing.
+    - **Start**: after you set the card In-Progress + self-assign → `bash ${CLAUDE_PLUGIN_ROOT}/scripts/crew_notify.sh --to-main "started #N (<workstream>)"`
+    - **Blocked/decision**: leave the durable reason on the card first → `crew_notify.sh --to-main "#N blocked: <one line>"`
+    - **Done**: after Done + E2E evidence on the card → `crew_notify.sh --to-main "#N done, evidence attached"`
+    - **Addressing**: `--to-main` derives your own project's main (`<project>~<slug>` → `<project>`); you are `<project>~<slug>`.
+      Never a bare `main` (it collides across concurrent crews). Peek anytime with `team_inbox_peek`. Full model: `references/crew-mode.md`.
 
 ---
 
@@ -164,7 +177,7 @@ Precise procedure = `${CLAUDE_PLUGIN_ROOT}/references/loop-protocol.md`. One loo
 | Topic | File |
 |---|---|
 | /loop + /goal engines and guards | `${CLAUDE_PLUGIN_ROOT}/references/engine-loop-and-goal.md` |
-| ★ North-star realignment (recall the goal every loop) | `${CLAUDE_PLUGIN_ROOT}/references/north-star.md` |
+|  North-star realignment (recall the goal every loop) | `${CLAUDE_PLUGIN_ROOT}/references/north-star.md` |
 | Field failure ledger (FM1~15) | `${CLAUDE_PLUGIN_ROOT}/references/failure-modes.md` |
 | Loop body, parallel lanes, pre-merge E2E | `${CLAUDE_PLUGIN_ROOT}/references/loop-protocol.md` |
 | Tier1 TDD | `tdd-workflow` skill + `${CLAUDE_PLUGIN_ROOT}/references/tdd-layer.md` |

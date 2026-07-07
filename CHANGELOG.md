@@ -2,6 +2,33 @@
 
 All notable changes to ultraloop are documented here. Versioning is [SemVer](https://semver.org/).
 
+## 0.11.2
+
+Skill-authoring pass over the four bundled skills, following Anthropic's Agent Skills guidance. No engine
+behavior changes — every operational gate, safety invariant, config key, and reference path is unchanged;
+this reshapes how the skills read, not what they do.
+
+### Fixed
+- **Two skill descriptions exceeded the 1024-character Agent Skills limit** — `design` (1270) and
+  `gh-roadmap` (1120) are rewritten to 914 and 993 while keeping their trigger keywords and role
+  boundaries. Descriptions are the always-loaded metadata, so this also trims per-session context cost.
+
+### Changed
+- **Reasoned prose replaces heavy-handed framing** across `design`/`pm`/`loop`/`gh-roadmap` — "IRON RULES",
+  `★`, and all-caps `MUST`/`NEVER`/`forbidden`/`mandatory` become instructions that explain *why* they
+  matter (an LLM follows a reasoned line better than a bare imperative). The rules' force is preserved
+  through the reason; the capability-matrix `❌` and genuine `⚠️` gotchas in gh-roadmap stay as data.
+- **`loop` no longer front-loads a reference read** — "read engine-loop-and-goal.md first" becomes "the
+  summary in §0 is enough to act; full reproduction in the reference," so a run can start without a second
+  file load.
+
+### Added
+- **Three-line TL;DR at the top of `design`/`pm`/`loop`** — what the skill does, when it's invoked, and the
+  single first action, so a fresh session orients in seconds instead of parsing the whole body.
+- **Crew communication cheat-sheet inlined in `loop` §4** — the three proactive report-to-`main` sends
+  (start / blocked / done, via `crew_notify.sh --to-main`) and the addressing rule are surfaced where a
+  lane actually works; receiving was already automatic (the Stop hook), but proactive reporting had no reminder.
+
 ## 0.11.1
 
 ### Fixed

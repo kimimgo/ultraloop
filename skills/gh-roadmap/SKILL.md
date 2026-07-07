@@ -1,18 +1,16 @@
 ---
 name: gh-roadmap
 description: >-
-  GitHub Projects (v2) board-based roadmap manager — builds a long/mid/short-term
-  (Initiative→Epic→Task) 3-tier using GitHub official best-practice mechanisms verbatim:
-  native sub-issue hierarchy, native issue dependencies (blocked-by), Roadmap layout view +
-  Target Date, one shared board across multiple repos, native project status updates
-  (On track/At risk), milestone wiring. The board is the single source of truth. Items that
-  cannot be 'created' via the API — views, Insights, built-in workflows — are automated by
-  cloning a human-built golden template with copyProjectV2, and the auto-add gap is filled
-  with actions/add-to-project. USE THIS when the user wants "로드맵 관리", "프로젝트 보드",
-  "장기/중기/단기 로드맵", "GitHub Projects 로 로드맵", "이슈 계층/sub-issue", "이슈 의존성
-  보드", "멀티레포 프로젝트 보드", "로드맵 마일스톤", "roadmap board", "project v2 로드맵" —
-  and when a higher-level loop such as ultraloop needs board structure/setup. For creating a
-  single issue the gh CLI is enough (this is for board roadmap structure).
+  Builds and operates a GitHub Projects (v2) board as a long/mid/short-term (Initiative→Epic→Task)
+  roadmap using GitHub's official best-practice mechanisms: native sub-issue hierarchy, native blocked-by
+  dependencies, a Roadmap layout view with Target Date, one shared board across repos, native status
+  updates, and milestone wiring. The board is the single source of truth. Views, Insights, and built-in
+  workflows can't be created via the API, so they are cloned from a human-built golden template
+  (copyProjectV2), with the auto-add gap filled by actions/add-to-project. Use when the user wants
+  "로드맵 관리", "프로젝트 보드", "장기/중기/단기 로드맵", "GitHub Projects 로 로드맵",
+  "이슈 계층/sub-issue", "이슈 의존성 보드", "멀티레포 프로젝트 보드", "roadmap board", "project v2 로드맵"
+  — or when a higher loop like ultraloop needs board structure/setup. For a single issue the gh CLI is
+  enough; this is for board roadmap structure.
 ---
 
 # gh-roadmap — GitHub Projects board roadmap (long/mid/short-term)
@@ -42,7 +40,7 @@ Which official best practice each element maps to: **`references/best-practice-m
 
 ---
 
-## 1. ⚠️ API-automatable vs template-only boundary (must understand)
+## 1. ⚠️ API-automatable vs template-only boundary — the constraint that shapes setup
 
 This boundary was verified against the live GraphQL schema. **The only limit of unattended automation is 'views'**.
 
@@ -97,7 +95,7 @@ Assets: `assets/fields.json` (field definitions) · `assets/add-to-project.yml` 
 
 ### ⚠️ Operational traps (field-verified 2026-06-21)
 - **Config location = working repo root.** `ghr_config_path` searches for `gh-roadmap.config.yaml` from cwd upward. A config created in a different directory (e.g. a parent repo) is not found from a child repo cwd, so `roadmap_item.sh` fails with **exit 3 (board.project_node_id not set)**. → Put the config at the root of the repo that uses the board (bootstrap now auto-records the node_id).
-- **stdin clash in bulk issue-creation loops.** Calling `gh issue create` inside `while read … done <<< "$DATA"` lets gh swallow the loop stdin and break it → **`</dev/null`** is mandatory on gh calls. (Same for `gh issue view`/`gh api`.)
+- **stdin clash in bulk issue-creation loops.** Calling `gh issue create` inside `while read … done <<< "$DATA"` lets gh swallow the loop's stdin and break it, so add **`</dev/null`** to those gh calls (same for `gh issue view` / `gh api`).
 - **The shell may be zsh.** `mapfile` and some bash-only syntax are missing → save multi-iteration loop scripts to a file and run with **`bash script.sh`**.
 - **Labels must be full names.** If the `type` value is `feat`, use `--label "type:feat"` (prefix included). Without the prefix, create fails because the label does not exist.
 - **If Roadmap bars are empty**, fill both Start Date + Target Date, connect them in the UI 'Set date fields', and Group by `Milestone` (see api-cheatsheet).
