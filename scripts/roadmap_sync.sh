@@ -50,8 +50,8 @@ for it in ready[:N]:
   ue_log "board not configured (no project_number)"; exit 3
 fi
 
-# Old gh (2.4.0 observed) lacks the `gh project` command → direct graphql fallback (multi-repo-orchestration.md §3).
-# On a shared board (board.shared=true), filter to own-repo cards only; approval is read from config roadmap.approved (recorded by meta).
+# Old gh (2.4.0 observed) lacks the `gh project` command → direct graphql fallback.
+# On a shared board (board.shared=true — one board spanning N repos), filter to own-repo cards only.
 if ! gh project item-list --help >/dev/null 2>&1; then
   PNODE="$(cfg_get roadmap.project_node_id "")"
   [ -n "$PNODE" ] || { ue_log "gh project absent + project_node_id not recorded → cannot read board (bootstrap/record needed)"; exit 3; }

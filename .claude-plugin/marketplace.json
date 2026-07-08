@@ -4,29 +4,28 @@
     "name": "kimimgo"
   },
   "metadata": {
-    "description": "Autonomous product loop — role-separated UI/UX design + PM planning + faithful board execution, orchestrating Google Stitch, gh-roadmap, and the harness's proven skills.",
-    "version": "0.7.0",
+    "description": "Autonomous software-engineering loop — board as the single source of truth, dynamic multi-agent workflows codified as reusable scripts, and a goal engine that won't stop before Done.",
+    "version": "0.12.0",
     "pluginRoot": "."
   },
   "plugins": [
     {
       "name": "ultraloop",
       "source": "./",
-      "description": "Three skills sharing one engine: ultraloop:design (Stitch-foundation UI/UX → cold multi-model critique → integrate → re-score loop → approved design system), ultraloop:pm (plan → write the board), ultraloop:loop (read the board → TDD + pre-merge E2E → ship). Orchestrates Google Stitch + the harness design tools + gh-roadmap + proven planning/spec/TDD/E2E skills instead of reimplementing them. Board is the single source of truth; roles and permissions are fully separated.",
-      "version": "0.7.0",
+      "description": "Two skills sharing one engine: ultraloop:pm (plan → write the board) and ultraloop:loop (read the board → dynamic workflows → TDD + pre-merge E2E → ship), plus the bundled gh-roadmap board authority. The trinity: board = WHAT (single source of truth), dynamic workflow = HOW (per-item orchestration, codified into a shipped workflows/ library with casting in code — coding sonnet·xhigh, reasoning inherits the main session), goal engine = WHEN (self-pacing /loop + stop-gating /goal behind fail-open guards). Roles and permissions fully separated.",
+      "version": "0.12.0",
       "keywords": [
         "autonomous-agent",
         "self-paced-loop",
+        "dynamic-workflow",
+        "multi-agent",
         "orchestrator",
         "gh-roadmap",
         "tdd",
         "github-projects",
         "roadmap",
         "e2e",
-        "pm",
-        "design",
-        "ui-ux",
-        "stitch"
+        "pm"
       ]
     }
   ]

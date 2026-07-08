@@ -57,16 +57,16 @@ planning-doc citations are forbidden. Before writing a table, re-run the script 
 ("due to integer rounding in the figure pipeline"). Revealing it as a source difference, not a contradiction, preempts reviewer objections.
 
 ## FM6 — bypassPermissions in autonomous loops is intentional but dangerous: surface the tradeoff
-**Symptom**: security review flags `orchestration.permission_mode: bypassPermissions` as HIGH.
+**Symptom**: security review flags running the unattended loop with `bypassPermissions` as HIGH.
 **Root cause**: unattended operation has nobody to answer the approval modal, so bypass is effectively required. But without a Bash
-allowlist, a worker can run arbitrary commands.
+allowlist, the session can run arbitrary commands.
 **Countermeasure**: state the tradeoff to the user explicitly (if already done, proceeding is fine). For unattended operation:
 ① restrict via a Bash allowlist (`go build/test/vet`, `latexmk`, `gh`, `git` reads, etc.) ② isolation boundary (container/worktree) ③ HITL
 for high-risk (GPU · external push). If the user is driving directly, `default`/`acceptEdits` is safer.
 
 ## FM7 — Board mutation is a deterministic core; no raw-graphql hand-crafting
 **Symptom**: board card moves/field updates are hit-or-miss, or `gh project` queries return empty JSON.
-**Countermeasure**: board writes go through `scripts/board.sh` (or multi-repo `meta_sync.sh`). On query failure, suspect gh version (FM3)
+**Countermeasure**: board writes go through `scripts/board.sh` (reads/reconcile via `meta_sync.sh`). On query failure, suspect gh version (FM3)
 first. When traceability (IRON RULE #6) is hard, at minimum leave an **evidence link in an issue comment** (board status moves are
 separate) — autonomous In Review→Done moves are blocked by the classifier as "self-approving a human-review gate" (rightly so).
 ⚠️ If `board.sh` warns `roadmap.project_node_id missing` and status updates fail: check `board.project_node_id` in config;

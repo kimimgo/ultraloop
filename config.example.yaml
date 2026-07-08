@@ -9,7 +9,7 @@
 
 # ── Target & mission ───────────────────────────────────────────────────────
 # [required] Target repo (owner/name or https URL). A slash-command argument takes precedence.
-repo: ""                          # e.g. owner/my-app   (decision 1: first dry-run repo)
+repo: ""                          # e.g. owner/my-app
 
 # [required, one of the two] Goal, scope, and DoD reinforcement for this run.
 mission_file: ""                  # external markdown path (recommended). Suited to long, detailed specs.
@@ -29,7 +29,7 @@ roadmap:
   #   gh auth: PAT with the 'project' scope. Inject via env GH_TOKEN or UE_PROJECT_TOKEN.
   token_env: UE_PROJECT_TOKEN     # env name to read the board token from (falls back to gh default if unset).
   ready_status: "Ready"           # Status option name meaning "ready to start". ⚠️ The default GitHub board (Todo/In Progress/Done)
-                                  #   has no Ready option → change this to "Todo" or workers will not pick up work (verified in a real multi-repo topology).
+                                  #   has no Ready option → change this to "Todo" or the loop will not pick up work.
   approved: false                 # approval flag for the milestones fallback path (with provider=github_projects_v2 the
                                   #   roadmap:approved label decides, so this value is ignored).
   # ★ Golden template — views, the Roadmap layout, and built-in workflows cannot be created via the API (verified) → only copyProjectV2 cloning works.
@@ -38,14 +38,21 @@ roadmap:
                                   #   Roadmap—PM·Schedule / Dev Board / Build Monitor + ROADMAP_LAYOUT + Horizon/Target Date).
                                   #   Empty = fresh board (no roadmap views or built-in workflows — one-time setup per golden-template-setup.md recommended).
 
-# ── Spec authority = GitHub Spec Kit (planning-gate artifact, SKILL §4.1.3) ──
+# ── Shared board (one board spanning N repos — board side, gh-roadmap territory) ──
+#  ultraloop itself is single-repo: it executes THIS repo's assigned slice (its epic/milestone) and nothing else.
+#  When the board spans multiple repos (gh-roadmap multi-repo link), set shared:true so the goal gate and
+#  Ready picks count only this repo's cards — never the whole shared board. One repo = one ultraloop session.
+board:
+  shared: false
+
+# ── Spec authority = GitHub Spec Kit (planning-gate artifact) ────────────────
 #  At the gate run `specify init . --integration claude --script sh` (v0.10.x). ⚠️ The Claude integration installs as
 #  .claude/skills/speckit-* skills, not slash commands — draft via the speckit-constitution/-specify/-clarify/-plan/-tasks/-analyze
 #  chain, then turn into issues with speckit-taskstoissues to link the board. specs/ is the spec source (.specify/ is created by init).
 spec:
   tool: github_speckit            # spec-writing tool. Empty = agent decides at the gate.
   specs_dir: specs/               # spec source directory (bootstrap only makes the placeholder; specify init runs at the gate).
-  freeze_in_loop: true            # freeze specs/ during the loop (§4.1.4). false = allow in-flight edits (not recommended).
+  freeze_in_loop: true            # freeze specs/ during the loop. false = allow in-flight edits (not recommended).
 
 # ── Autonomy engine: /loop (self-pacing) + /goal (stop-blocking gate) ★ the inherited built-in engines ─
 engine:
@@ -61,22 +68,18 @@ engine:
     enabled: true
     install_stop_hook: true       # install the Stop hook into the target repo .claude/settings.json (= /goal as-is)
     condition: "DoD"              # "DoD" = every item of definition-of-done.md. Or a free-form condition string.
-    scope: "board"                # v0.10 run scope: "board" = full-board completion (default) |
+    scope: "board"                # run scope: "board" = full-board completion (default) |
                                   #   "milestone:<title>" = this run ends when THAT milestone is drained
                                   #   (goal gate counts only its issues; Ready pick + deploy marker scope with it —
                                   #   the machine counterpart of per-milestone goals in north-star.md §2)
-    # ↓ §15 hard guards (infinite-loop prevention — mandatory. Blocks a repeat of the past guard-less Stop-hook incident)
+    # ↓ hard guards (infinite-loop prevention — mandatory. Blocks a repeat of the past guard-less Stop-hook incident)
     max_iterations: 200           # cap on how many times the Stop hook may cumulatively block a stop
     max_stall_iterations: 10      # no-progress guard: if the goal_check reason is identical N times in a row (= zero progress),
                                   #   allow the stop + escalate. Blocks busywork/429 storms at the DoD ceiling (all remaining
                                   #   cards parked/blocked) (references/failure-modes.md FM1). 0 = disabled.
     lock_file: ""                 # concurrent re-entry lock (empty = the script uses a per-uid default path)
-    lane_defer: true              # ★ in a worktree LANE (crew / multi-worktree), defer the DoD to MAIN — a lane is not
-                                  #   responsible for GLOBAL board completion, so gating it on the whole board = an infinite loop
-                                  #   (its slice Done, board not → never "met"). true (default) = a lane whose cwd is under a worktree
-                                  #   dir allows its own stop; main (repo root) + multi-repo workers (repo root) are unaffected. false = old behavior.
-  # ── ★ loop autonomy (v0.11) — where the pm↔loop permission boundary is drawn ──────────────────
-  #   card      = loop executes pre-written cards only; every new card is pm's (the v0.10 behavior).
+  # ── loop autonomy — where the pm↔loop permission boundary is drawn ──────────────────
+  #   card      = loop executes pre-written cards only; every new card is pm's.
   #   milestone = loop may BREED its own tactical TDD cards INSIDE the active milestone envelope (recommended).
   #               Envelope gate (north-star.md §4.5) — a bred card is admissible only if ALL hold:
   #               (a) it carries a Goal-link: to the ACTIVE milestone's goal,
@@ -85,18 +88,14 @@ engine:
   #               Strategic scope (new milestone/Epic, anti-goal boundary, north-star change) still escalates to pm.
   #   epic      = the same envelope one tier up (active Epic). Stronger autonomy, weaker pm control → scope-drift risk.
   autonomy: milestone           # card | milestone (recommended, shipped default) | epic  ·  pairs with goal.scope above
-                                #   (an older config missing this key = card → unchanged 0.10 behavior, so upgrades are backward compatible)
 
-# ── §15 cost/time/observability ceilings (exceeding = safe stop = budget-stop, exit 7) ───────────
+# ── Cost/time/observability ceilings (exceeding = safe stop = budget-stop, exit 7) ───────────
 budgets:
   max_loops: 0                    # 0 = unlimited (but goal.max_iterations still caps). >0 caps the loop count.
   max_wall_clock_hours: 24        # wall-clock ceiling for the whole run
   max_tokens: 0                   # token accounting belongs to the harness (session) — cost_guard does not tally it (best-effort). Display/future.
-  ci_minutes_per_day: 0           # the CI-minutes circuit breaker is not implemented yet (best-effort) — display/future (REQ-CD-3).
-  dead_mans_switch_minutes: 30    # alert after N minutes without progress (REQ-ST-3)
-  # ↓ N-repo mode only (measured: 3 concurrent xhigh workers = 77% of the weekly quota — multi-repo §6)
-  weekly_usage_floor_percent: 90  # stop launching new workers at this % of weekly usage (finish in-flight work only). Meta decides.
-  effort_by_task: {}              # effort tier per task type. e.g. {scaffold: medium, analysis: medium, design: high}
+  ci_minutes_per_day: 0           # the CI-minutes circuit breaker is not implemented yet (best-effort) — display/future.
+  dead_mans_switch_minutes: 30    # alert after N minutes without progress
 
 # ── HITL (human confirmation) — production deployment gate ──────────────────
 hitl:
@@ -104,7 +103,7 @@ hitl:
   reviewers: [""]                 # GitHub username/team — bootstrap registers them as production env required reviewers
   gated_environment: production
 
-# ── Deploy target (decision 2: local E2E only vs staging cloud) ─────────────
+# ── Deploy target ─────────────────────────────────────────────────────────
 deploy:
   mode: local_e2e_only            # local_e2e_only | staging_cloud
   staging: { enabled: false, url: "" }
@@ -124,31 +123,13 @@ stack:
   lint_command: ""                # e.g. "ruff check ."
   build_command: ""               # e.g. "docker build ."
 
-# ── Optional: GAN quality loop (Generator-Evaluator iteration in lane ⑥ E2E — borrowed from gan-style-harness) ─
-quality:
-  gan_evaluator: false            # true = gan-evaluator (a locally installed agent) scores the E2E evidence against the issue
-                                  #   acceptance-criteria rubric → below threshold, the lane reworks and re-evaluates.
-  threshold: 8                    # passing bar out of 10
-  max_rounds: 3                   # ★ mandatory hard guard — no infinite repetition in the quality loop either (3 misses = Parked + approval queue)
-
-# ── Optional: reliability eval (pass@k / pass^k — borrowed from the eval-harness skill) ────────────
-# A single pass does not guarantee the reliability of a flaky change. Critical cards measure stability via repeated runs.
-eval:
-  enabled: false                  # true adds a pass@k/pass^k reliability gate to card verification (off = the existing loop is unaffected)
-  capability_pass_at_k: 3         # capability eval: measure 1+ passes out of k attempts (pass@k)
-  capability_threshold: 0.9       # pass@k passing bar (default pass@3 ≥ 0.90)
-  regression_pass_caret_k: 3      # regression eval: critical paths must pass all k runs (pass^k = 1.0)
-  critical_labels: ["release-critical", "payment", "auth"]  # card labels that force pass^k
-  max_k: 5                        # ★ hard guard — repetition ceiling (no infinite reruns)
-  artifact_dir: ".claude/evals"   # where eval definitions/logs are stored (eval-harness layout)
-
 # ── Production E2E (Tier 2) — pre-merge gate ★ ──────────────────────────────
 e2e:
   runner: auto                    # auto | docker_compose | readme_command
   ui_driver: browser_mcp          # browser_mcp (headless) | playwright_headless (fallback)
   base_port: 14000                # starting point for per-lane dynamic port allocation (collision avoidance)
   health_timeout_seconds: 120
-  flake_retries: 3                # backoff retries for transient failures (strike only afterwards, REQ-E2E-6)
+  flake_retries: 3                # backoff retries for transient failures (strike only afterwards)
   screenshot_max_mb: 2            # DLP — screenshot compression/downscale ceiling
   secrets_file: ".env.e2e"        # credential injection source (no plaintext commits; discarded at teardown)
 
@@ -159,81 +140,28 @@ worktree:
   base_ref: "fresh"               # branch base for isolated lanes — fresh=origin/<default> (recommended: reproducible, no unpushed work leaks in) | head=local HEAD (build on unpushed commits)
                                   #   bootstrap_repo.sh records this value as worktree.baseRef in the target repo .claude/settings.json
 
-# ── ★ crew mode (v0.11) — single repo · one board · ows worktree LANES as human-attachable peers ──
-#   The single-repo shape of N-repo meta/worker, but lanes are ows worktree sessions <project>~<slug> (a human can attach to any).
-#   Built ON ows — does NOT reimplement: lanes = `ows wt-spawn`, sync = `ows wt-sync`, lane role + sibling awareness + TEAM_NAME inbox =
-#   the ows worktree-context SessionStart hook, coordination = team_inbox (lanes report to `main`). Card ownership = a product-language
-#   WORKSTREAM on the board (Epic / Workstream field, feature-named — never a `wt`/`lane`/session-id label, messaging §5) + assignee as the
-#   lock; name the worktree after the workstream so slug == field value. No recursion: only `main`/a human spawns lanes.
-#   Authority: references/crew-mode.md.  (enabled:false = existing single-session behavior, fully backward compatible.)
-crew:
-  enabled: false                  # true = run under crew (main coordinator + ows worktree lanes; each lane = the ordinary loop, one card, max_lanes→1)
-  channel: auto                   # coordination channel: auto (team_inbox / cc-hub HTTP if present, else send_keys) | broker | send_keys
-  crew_channel: ""                # team_inbox room name for this crew (empty = "<repo-basename>-crew")
-  report_to: ""                   # team_inbox hub a lane reports to. empty = the lane's OWN project main `<project>` (derived from its
-                                  #   `<project>~<slug>` name via crew_notify.sh --to-main). ★ Never a bare "main" — cc-hub routes flat
-                                  #   names (no project column), so the address must be project-qualified or concurrent crews collide.
-  claim_jitter_seconds: 4         # self-serve claim only: arbitration window — re-read after this to resolve races (earliest broker timestamp wins)
-  claim_ttl_minutes: 45           # self-serve claim only: a claim by a vanished lane expires after this → the card is reclaimable
-  # lane sessions are named <project>~<slug> by ows (not registry-tracked; `git worktree list` is the SoT) — no prefix knob needed.
-
-# ── ★ Workflow orchestration (Claude Code Workflow tool — opus·ultracode·dynamic) ──────────
-#  ⚠️ "Workflow" here means the **Claude Code Workflow tool (multi-agent orchestration)**. It is entirely different from GitHub Projects
-#  **built-in workflows** (closed→Done etc., roadmap side = gh-roadmap) — do not confuse them.
-#  A skill cannot change the session model directly (the user sets --model), so enforcement happens by specifying subagent
-#  model/effort/agentType on Workflow/Agent calls + strong instructions. Details = references/workflow-orchestration.md.
+# ── ★ Dynamic workflow (Claude Code Workflow tool) — references/dynamic-workflow-design.md ──
+#  ⚠️ "Workflow" here = the Claude Code multi-agent orchestration tool. Entirely different from GitHub Projects
+#  built-in workflows (board side = gh-roadmap). A skill cannot change the session model (the user sets --model);
+#  casting applies to SUBAGENTS, where per-call model/effort IS enforceable. The shipped workflows/ scripts carry
+#  these defaults in code; this block overrides them.
 workflow:
-  orchestrate: true               # orchestrate the core phases (pm planning chain / loop lanes) with the Workflow tool (enforced instruction)
-  mode: ultracode                 # ultracode (per-phase multi-agent fan-out) | solo (single agent, small scale)
-  pacing: dynamic                 # dynamic-workflow (dynamic pacing) — consistent with engine.loop.pacing
-  agents:                         # ★ workflow-phase subagent defaults (model/effort/max subagents — recorded by bootstrap)
-    model: opus                   #   subagent model (opus recommended). Empty = inherit the session model.
-    effort: xhigh                 #   subagent effort: low | medium | high | xhigh | max
-    max_subagents: 8              #   ★ max concurrently spawned subagents (concurrency cap). Actual concurrency = min(this, cores-2).
-  by_phase:                       #   per-phase overrides (empty = inherit the agents defaults)
-    pm:   { model: opus, effort: xhigh, max_subagents: 4 }   # planning chain (strategy, roadmap, red team, spec, prioritization) fan-out
-    loop: { model: opus, effort: xhigh, max_subagents: 8 }   # lane fan-out (each lane = isolation:worktree)
+  orchestrate: true               # run pm/loop core stages as dynamic workflows. false = solo agent throughout (small scale)
+  casting:                        # ★ model×effort per stage TYPE (dynamic-workflow-design.md §2)
+    coding:       { model: sonnet, effort: xhigh }  # agents that write/edit source (TDD lanes, fixes, tests)
+    reasoning:    { model: "",     effort: xhigh }  # design/judgment stages — empty model = inherit the MAIN session (run it on fable/opus)
+    verification: { model: "",     effort: high  }  # adversarial reviewers / evidence auditors — inherit main session
+    mechanical:   { model: haiku,  effort: low   }  # inventories, parsing, formatting sweeps
+  max_subagents: 8                # concurrency cap — actual = min(this, 16, cores-2)
 
-# ── N-repo mode (multi repo / 1 shared board / session-manager workers) ───────────────────
-#  references/multi-repo-orchestration.md is the authority. Activates when repos: lists 2 or more —
-#  empty (default) means the scalar repo: above = the existing single-repo behavior (fully backward compatible).
-repos: []                         # example (the meta cc fills this in):
-#repos:
-#  - name: owner/service-a
-#    path: ~/work/service-a       # worker cwd [required in N-repo mode]
-#    role: control-plane          # free-form label
-#    default_stage: "2 Control-plane core"
-#  - name: owner/service-b
-#    path: ~/work/service-b
-#    isolation: worktree          # worktree isolation when a host occupies the directory (occupancy is also auto-detected)
-
-board:                            # ★ N-repo mode: the board is ONE shared board above the repos — do not create one per repo
-  shared: false                   # true = shared board (workers must not create boards; they read only their own repo's cards, filtered)
-  title: ""                       # shared board title (empty = "<first repo name> Platform"). board_bootstrap.sh idempotency key.
-  stage_options: []               # Stage single-select option list (empty = omit the Stage field). e.g. ["1 Core", "2 Core API"]
-
-orchestration:                    # ★ N-repo worker control (spawn authority = meta only; worker/hook calls forbidden)
-  mode: in_process_lanes          # in_process_lanes (existing single repo) | session_mgr_sessions (N-repo tmux workers)
-  spawn: tmux_new_session         # tmux_new_session (ul- prefixed sessions) | session_mgr (external session-manager CLI — optional.
-                                  #   session name = basename → `ta` attach compatible + bookmark persists across reboots.
-                                  #   ⚠️ ensure-hot does not start CC — CC startup is the script's job)
-  channel: auto                   # auto (durable messaging when a message broker is available, else send_keys) | broker | send_keys
-                                  #   broker = example broker API HTTP POST /team/messages → durable worker inbox (+ send-keys wake-up bonus, no loss)
-  tmux_socket: ""                 # "" = default server | "ultraloop" = isolated socket (tmux -L) — protects the operational tmux server
-  max_concurrent_workers: 2       # concurrent worker cap (throttles usage and tmux load)
-  stagger_seconds: 20             # no simultaneous worker start — sequential start interval
-  permission_mode: bypassPermissions
-
-# ── Notifications & approvals — Discord gateway bot (outbound WS) ─────────────
-#  (decision 3: server/channel/bot token/approvers/TTL)
+# ── Notifications & approvals — outbound-only (fire-and-continue) ─────────────
+#  Notifications POST an embed to a channel (notify.sh); approvals are a file queue answered by
+#  `echo Y > <queue>/<id>.result` from any shell (notify-approval.md). No inbound bot, no gateway.
 discord:
   enabled: true
-  mode: gateway_bot               # gateway_bot (WS, receives buttons) | webhook_outbound (fallback, notify only) | console
-  token_env: ULTRALOOP_DISCORD_BOT_TOKEN   # env name to read the bot token from (no plaintext)
-  notify_channel_id: ""           # routine notifications (loop/push/CI/E2E/heartbeat)
-  approval_channel_id: ""         # high-risk approval buttons [Y]/[N]
-  approver_user_ids: [""]         # user ids with approval authority
-  approval_ttl_minutes: 120       # no-response TTL → escalate/defer (REQ-APR-3)
+  token_env: ULTRALOOP_DISCORD_BOT_TOKEN   # env name to read the token from (no plaintext). Missing token = console fallback.
+  notify_channel_id: ""           # routine notifications (loop/push/CI/E2E/heartbeat/approval-pending)
+  approval_ttl_minutes: 120       # approval queue: no-response TTL → escalate/defer (never auto-proceed)
 
 # ── Risk (defaults; rules live in references/notify-approval.md) ─────────────
 risk:

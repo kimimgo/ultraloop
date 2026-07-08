@@ -2,6 +2,66 @@
 
 All notable changes to ultraloop are documented here. Versioning is [SemVer](https://semver.org/).
 
+## 0.12.0
+
+The **lite** release — back to the founding trinity: **board (SoT) × dynamic workflow × goal engine**. Everything
+that grew around that core is removed; the weakest leg (dynamic workflow) becomes the strongest. Roughly 2,000
+lines of accreted surface are cut and ~400 lines of workflow methodology + reusable code are added.
+
+### Added
+- **`references/dynamic-workflow-design.md` ★** — the dynamic-workflow design methodology, promoted from a 3-line
+  note to the plugin's centerpiece: the five-question design loop (shape → dependencies → uncertainty → casting →
+  budget), a pattern vocabulary (pipeline / barrier / lane fan-out / adversarial · diverse-lens verify / judge
+  panel / loop-until-dry / completeness critic), the **casting policy** as a table, the **codification rule**
+  (ad-hoc once → script on recurrence → call the script thereafter; project-local shapes go to the target repo's
+  `.claude/workflows/`), and a post-run step that tunes the scripts themselves.
+- **`workflows/` shipped library** — reusable Workflow-tool scripts, parameterized by `args`, each a reference
+  implementation of the methodology: `milestone-fanout.workflow.js` ★ (below), `lane-fanout.workflow.js` (one
+  card-batch → worktree-isolated TDD lanes → per-lane adversarial verify, no merge), `pm-chain.workflow.js`
+  (strategy perspectives → north star → red-team **barrier** → spec per milestone → prioritized plan; returns
+  data — pm still owns board writes), `adversarial-verify.workflow.js` (claims × diverse lenses → majority verdict).
+- **Fan-out envelope = the MILESTONE ★** (`dynamic-workflow-design.md` §0.5) — a workflow invocation is expensive,
+  so it carries the largest scope whose design can be trusted: the milestone, whose contract (goal · verdict
+  question · anti-goals · acceptance) is red-teamed and human-approved at the pm gate and which has a machine
+  drain condition. Epic/board is never one invocation (no drain semantics, no verdict question); cards are the
+  small-run fallback. `milestone-fanout.workflow.js` implements it as **graph → waves**: a reasoning agent
+  (inherits the main session) proposes the card dependency graph (hard edges + same-module conflict edges),
+  deterministic code validates it (unknown ids, cycles → one repair round → serial fallback) and schedules
+  conflict-free waves ≤ `max_lanes`; each wave runs coding lanes (sonnet·xhigh, worktree) → adversarial verify →
+  **one serial integrator** (merge order enforced by structure; board card → Done + evidence), and the next wave
+  branches from the merged base. Failed cards block their dependents and return as leftovers for the approval
+  queue — never blind-retried. Under `engine.autonomy: milestone` (default) loop-protocol steps ②–⑧ run inside
+  this one invocation; the orchestrator keeps ①, ⑨, and the milestone close-out verdict.
+- **Casting policy in code** (`config.workflow.casting`) — model×effort per stage TYPE: coding = `sonnet·xhigh`,
+  reasoning = inherit the main session (`""`·xhigh), verification = inherit·high, mechanical = `haiku·low`.
+  Replaces the flat opus-everywhere `workflow.agents`/`by_phase` scheme; bootstrap records the coding cast into
+  the target repo's `.claude/settings.json`.
+
+### Removed (the diet — all resurrectable from git history)
+- **`ultraloop:design` skill** and its references (`design-loop-protocol`, `design-tools-map`, `stitch-foundation`,
+  `community-refs`), `design_env_check.sh`, and `assets/design/` — UI/UX design is a separate product, not part of
+  the loop's essence.
+- **Crew mode** (`crew-mode.md`, `crew_notify.sh`, the `stop-inbox-check.sh` Stop hook, `config.crew`,
+  `engine.goal.lane_defer`) and **N-repo meta/worker orchestration** (`multi-repo-orchestration.md`,
+  `worker_spawn.sh`, `compose_msg.sh`, `board_bootstrap.sh`, `config.repos/orchestration`) — multi-session
+  topologies are out; parallelism is the dynamic workflow's job (in-process worktree lanes). "N repos" remains a
+  **board** concern: gh-roadmap links N repos to one shared board, and each repo runs its own single-repo
+  ultraloop on its assigned slice (`board.shared: true` filters goal gate + Ready picks to this repo — kept).
+- **Discord gateway approval bot** (`approve_bot.py`, `assets/discord/`, `discord.mode`) — approvals stay as the
+  file queue (`echo Y > <queue>/<id>.result`, one line from any shell) + outbound-only notifications
+  (`notify.sh`, console fallback). The HITL production gate is unchanged.
+- **GAN quality loop and pass@k reliability eval** (`config.quality`, `config.eval`, the DoD reliability line) —
+  verification depth now comes from the adversarial-verify workflow patterns instead of bolt-on gates.
+- `references/workflow-orchestration.md` (58 lines of config mapping) — superseded by
+  `dynamic-workflow-design.md`; `meta_sync.sh rollup` (N-repo view); `budgets.weekly_usage_floor_percent`,
+  `budgets.effort_by_task`.
+
+### Changed
+- **pm/loop SKILLs rewired** to the methodology + shipped scripts: loop's lane formation invokes
+  `lane-fanout.workflow.js`; pm's planning chain invokes `pm-chain.workflow.js`; both reference maps point at
+  `dynamic-workflow-design.md`. gstack lane registry trimmed to pm/loop entries (design rows gone).
+- README/plugin/marketplace rewritten around the trinity pitch; two skills + bundled gh-roadmap.
+
 ## 0.11.2
 
 Skill-authoring pass over the four bundled skills, following Anthropic's Agent Skills guidance. No engine

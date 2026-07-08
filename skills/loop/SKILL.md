@@ -32,9 +32,10 @@ You pace yourself with `/loop` and gate stops with `/goal`, proceeding unattende
 1. **Bootstrap auto-enforcement.** If the target repo lacks the `.claude/.ultraloop-bootstrapped` marker, run
    `bash ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap_repo.sh` **immediately** (idempotent). Proceed only on success; on failure
    report clearly and stop (no silent degrade). If the marker exists, pass.
-2. **Arm Workflow orchestration.** If `config.workflow.orchestrate: true` (default), run lane fan-out with the **Claude Code
-   Workflow tool** — subagent model/effort/max_subagents = `config.workflow.by_phase.loop`
-   (default opus·xhigh·8), each lane `isolation:"worktree"`. Details `${CLAUDE_PLUGIN_ROOT}/references/workflow-orchestration.md`.
+2. **Arm the dynamic workflow.** If `config.workflow.orchestrate: true` (default), core stages run as **dynamic workflows**
+   (Claude Code Workflow tool) designed per work item — methodology and casting policy in
+   `${CLAUDE_PLUGIN_ROOT}/references/dynamic-workflow-design.md`. Lane fan-out calls the shipped script
+   `${CLAUDE_PLUGIN_ROOT}/workflows/lane-fanout.workflow.js` (coding lanes = sonnet·xhigh; verification inherits the main session).
    ⚠️ This "Workflow" is the Claude Code multi-agent tool — different from GitHub **built-in workflows** (board side).
 3. **Call dependency skills (no reimplementation).** Board I/O = `gh-roadmap`, Tier1 TDD = `tdd-workflow`, verification/review/deploy = `gstack-*`.
    Mapping = `${CLAUDE_PLUGIN_ROOT}/references/dependencies.md`. If absent, fall back but state the absence in PROGRESS.
@@ -120,10 +121,18 @@ Precise procedure = `${CLAUDE_PLUGIN_ROOT}/references/loop-protocol.md`. One loo
    `references/north-star.md` §4) · refresh the progress cache (`status.sh --refresh`) · gate (`roadmap_sync.sh`) ·
    environment check (`references/env-check.md`) · cost/heartbeat (`cost_guard.sh`/`heartbeat.sh`) · drain the approval queue ·
    gstack lane availability re-check (cheap glob — availability drifts between bootstrap and overnight runs; dependencies.md §4).
-2. **Lane formation (Workflow fan-out)** — fan out the next N Ready cards (no dependency violations, non-conflicting module directories) in
-   parallel with the **Claude Code Workflow tool** (each lane `isolation:"worktree"`, model/effort=`config.workflow.by_phase.loop`) ·
-   GC stale worktrees. Concurrent lanes ≤ `config.workflow.agents.max_subagents` and ≤ `config.worktree.max_lanes`
-   (`references/workflow-orchestration.md`).
+2. **Fan-out (dynamic workflow) — the envelope is the milestone** (`references/dynamic-workflow-design.md` §0.5).
+   Under `engine.autonomy: milestone` (default), hand the ACTIVE milestone whole — its contract (goal · verdict question ·
+   acceptance) + ALL its open cards with their board `Depends-on` values — to
+   `Workflow({scriptPath: "${CLAUDE_PLUGIN_ROOT}/workflows/milestone-fanout.workflow.js", args: {repo, milestone, cards, maxLanes, casting}})`.
+   Inside: a reasoning agent builds the dependency graph, code validates it and schedules parallel waves of
+   worktree-isolated coding lanes, each verified lane is merged by a **serial per-wave integrator** (board card → Done +
+   evidence), and the next wave branches from the merged base — one invocation drains one milestone; leftovers come back
+   for the approval queue / next tick, and steps ③–⑧ below are carried inside the workflow (you keep ①② and ⑨ + the
+   milestone close-out verdict). Under `autonomy: card`, or for small remainders, use the card-batch
+   `lane-fanout.workflow.js` instead (no merge inside — ⑦ stays yours). GC stale worktrees first; per-wave lanes ≤
+   `config.worktree.max_lanes`, concurrency ≤ `config.workflow.max_subagents`. For shapes neither script fits, design
+   with §0 and codify recurrences (§3).
 3~6. **Lanes in parallel** — TDD + atomic commits → rulepack 4 gates (format·lint·type·test + per-card coverage —
    `references/tdd-layer.md` §3.5, all green inside the lane; 3rd consecutive failure of the SAME gate →
    run gstack investigate if present BEFORE parking — root cause beats retry) → push → hierarchical CI (green) →
@@ -141,23 +150,9 @@ Precise procedure = `${CLAUDE_PLUGIN_ROOT}/references/loop-protocol.md`. One loo
    at milestone close, answer the verdict question (north-star.md §4) and, if present, run gstack health + retro (per-milestone cost class).
 
 - A high-risk lane parks only itself (Parked + approval queue, `approval_queue.sh`); the other lanes continue.
-- N-repo mode (`config.repos` with 2+) follows `references/multi-repo-orchestration.md` — worker spawn uses the tmux session backend
-  (external session manager optional, session name = basename), spawn authority is meta-only (no recursive spawn).
-- Crew mode (`config.crew.enabled: true`) follows `references/crew-mode.md` — a single repo run as **`main` + N ows worktree lanes**
-  `<project>~<slug>` (**human-attachable siblings**). Built **on ows, not reimplemented**: lanes via `ows wt-spawn`, sync via `ows wt-sync`,
-  the lane role + sibling awareness + `TEAM_NAME` inbox from the ows `worktree-context` SessionStart hook, coordination via team_inbox
-  (lanes report to `main`). Board ownership = a **product-language workstream** (Epic / Workstream field, feature-named — never a
-  `wt`/`lane`/session-id label, messaging §5) with **assignee as the lock**; name the worktree after the workstream so slug == field
-  value. One card per lane (max_lanes=1); lanes are spawned only by `main`/a human (no recursion).
-  - ** Crew communication — as a lane, make these three sends per card (this is the part that gets forgotten).** *Receiving* is
-    automatic: the Stop hook (`hooks/stop-inbox-check.sh`) injects any unconsumed team messages at every turn end. The gap is
-    *sending* — nothing reminds you to tell `main` where you are, so do it deliberately. Each message is only a low-latency
-    pointer; the board stays the source of truth, so a missed one loses nothing.
-    - **Start**: after you set the card In-Progress + self-assign → `bash ${CLAUDE_PLUGIN_ROOT}/scripts/crew_notify.sh --to-main "started #N (<workstream>)"`
-    - **Blocked/decision**: leave the durable reason on the card first → `crew_notify.sh --to-main "#N blocked: <one line>"`
-    - **Done**: after Done + E2E evidence on the card → `crew_notify.sh --to-main "#N done, evidence attached"`
-    - **Addressing**: `--to-main` derives your own project's main (`<project>~<slug>` → `<project>`); you are `<project>~<slug>`.
-      Never a bare `main` (it collides across concurrent crews). Peek anytime with `team_inbox_peek`. Full model: `references/crew-mode.md`.
+- On a **shared board** (`config.board.shared: true` — one board spanning N repos, linked by gh-roadmap), this loop executes only
+  THIS repo's assigned slice: `roadmap_sync`/`goal_check` count only this repo's cards. One repo = one ultraloop session; the
+  board is where the N repos meet, not the loop.
 
 ---
 
@@ -165,7 +160,7 @@ Precise procedure = `${CLAUDE_PLUGIN_ROOT}/references/loop-protocol.md`. One loo
 
 - Approved cards on the board (`roadmap:approved`) + acceptance criteria/scenarios frozen. If missing, stop and announce "pm planning needed" (do not define scope).
 - The target repo is bootstrapped by `bootstrap_repo.sh` (confirm the goal Stop-hook install). If not, run it idempotently.
-- config = `ultraloop.config.yaml` at the target repo root (searched upward from cwd). To operate under ows, the repo must be registered in the registry (`ows new`).
+- config = `ultraloop.config.yaml` at the target repo root (searched upward from cwd).
 - **New-run detection**: if this is the *first* loop of a new mission / newly approved board, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/cost_guard.sh --reset`
   to clean the previous run's counters and goal-state leftovers (full-board-completion leftovers reset automatically, but budget-stop leftovers need a manual --reset —
   otherwise the very first loop hits the wall-clock ceiling). Do not call it when resuming (wakeup) a run already in progress.
@@ -186,7 +181,5 @@ Precise procedure = `${CLAUDE_PLUGIN_ROOT}/references/loop-protocol.md`. One loo
 | Message tone, ghostwriter rule (no tool/agent names) | `${CLAUDE_PLUGIN_ROOT}/references/messaging.md` |
 | Hierarchical CI, HITL deployment | `${CLAUDE_PLUGIN_ROOT}/references/ci-cd-hitl.md` |
 | Definition of done (exit condition) | `${CLAUDE_PLUGIN_ROOT}/references/definition-of-done.md` |
-| N-repo meta orchestration | `${CLAUDE_PLUGIN_ROOT}/references/multi-repo-orchestration.md` |
-| Crew mode (single repo, N flat ows peers, card-lock, human-as-peer) | `${CLAUDE_PLUGIN_ROOT}/references/crew-mode.md` |
 | Dependency skill map (orchestration targets) | `${CLAUDE_PLUGIN_ROOT}/references/dependencies.md` |
-| Workflow enforcement (opus·ultracode·dynamic) | `${CLAUDE_PLUGIN_ROOT}/references/workflow-orchestration.md` |
+| ★ Dynamic workflow design (patterns · casting · codification) | `${CLAUDE_PLUGIN_ROOT}/references/dynamic-workflow-design.md` |

@@ -1,7 +1,7 @@
 {
   "name": "ultraloop",
-  "version": "0.11.2",
-  "description": "Autonomous product loop for Claude Code that ORCHESTRATES proven skills rather than reimplementing them — gh-roadmap (bundled since v0.9.0; milestone-scoped runs since v0.10.0) owns the GitHub Projects board; design/strategy/spec/TDD/E2E skills do the work, and an entirely optional gstack lane (referenced, never bundled) plugs in at mapped steps with built-in fallbacks and ultraloop keeping all merge/deploy authority. THREE role-separated skills plus the bundled board authority: ultraloop:design crafts the UI/UX to a verifiable score (Google-Stitch foundation + the harness's verified design tools, in a generate -> cold multi-model critique -> integrate -> re-score loop) and hands an approved design system to pm; ultraloop:pm plans (product-strategy -> outcome-roadmap -> strategy-red-team -> speckit -> prioritization) and writes the board; ultraloop:loop reads that board and ships it via TDD + pre-merge production E2E, faithfully logging progress back to the board. The board is the single source of truth.",
+  "version": "0.12.0",
+  "description": "Autonomous software-engineering loop for Claude Code built from exactly three mechanisms: a GitHub Projects v2 board as the single source of truth (WHAT — pm fills it, loop drains it), dynamic multi-agent workflows designed per work item and codified into reusable scripts (HOW — shipped workflows/ library: milestone-fanout drains one whole milestone per invocation via a reasoning-built, code-validated dependency graph and parallel waves, plus lane-fanout, pm-chain, adversarial-verify; casting policy in code: coding agents sonnet-xhigh, reasoning/verification inherit the main session), and a goal engine that self-paces with /loop and refuses to stop before the Definition of Done with /goal, behind fail-open hard guards (WHEN). Two role-separated skills plus the bundled board authority: ultraloop:pm plans (product-strategy -> outcome-roadmap -> strategy-red-team -> speckit -> prioritization) and writes the board with no Write/Edit tool; ultraloop:loop reads that board and ships it via TDD + pre-merge production E2E, faithfully logging progress back to the board; gh-roadmap owns board structure (one board may span N repos — each repo runs its own single-repo session on its assigned slice).",
   "author": {
     "name": "kimimgo"
   },
@@ -11,6 +11,8 @@
   "keywords": [
     "autonomous-agent",
     "self-paced-loop",
+    "dynamic-workflow",
+    "multi-agent",
     "orchestrator",
     "gh-roadmap",
     "tdd",
@@ -18,13 +20,9 @@
     "roadmap",
     "e2e",
     "pm",
-    "design",
-    "ui-ux",
-    "stitch",
     "agentic"
   ],
   "skills": [
-    "./skills/design",
     "./skills/pm",
     "./skills/loop",
     "./skills/gh-roadmap"

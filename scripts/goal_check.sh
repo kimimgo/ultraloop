@@ -16,17 +16,6 @@ REPO="$(ue_repo)"
 COND="$(cfg_get engine.goal.condition DoD)"
 fail() { echo "$1"; exit 1; }
 
-# 0-lane) Worktree LANE (crew / multi-worktree) — the machine DoD belongs to MAIN, not a lane.
-#   A lane is not responsible for GLOBAL board completion or the production deploy, so gating it on the whole board is
-#   an infinite loop: its own slice can be Done while the board is not → goal never "met" → the Stop gate blocks forever.
-#   A lane's continuation is driven by its own /loop (it picks its next assigned card at ①) and re-engaged by the crew
-#   wake; the gate here must not trap it. Detection = cwd under a worktree dir (ows `.worktrees/`, ultraloop `.ue-worktrees/`).
-#   MAIN (repo root) and multi-repo workers (repo root, already board-filtered) do NOT match → unaffected. Override: engine.goal.lane_defer:false.
-case "$PWD" in
-  */.worktrees/*|*/.ue-worktrees/*)
-    [ "$(cfg_get engine.goal.lane_defer true)" = "true" ] && exit 0 ;;
-esac
-
 # Free-form condition cannot be auto-judged → hand off to agent judgment (conservatively not met, but state the reason)
 if [ "$COND" != "DoD" ]; then
   fail "condition=$COND — the agent must judge fulfillment directly (not machine-verifiable)"
@@ -62,8 +51,8 @@ if [ -z "$MS" ] && [ -n "$PROJ" ] && command -v gh >/dev/null 2>&1; then
   # (same version-independence as roadmap_sync.sh — if absent, falls through to conservative not-met as before)
   GHP="gh"
   if ! gh project --help >/dev/null 2>&1 && [ -x "$HOME/.local/bin/gh" ]; then GHP="$HOME/.local/bin/gh"; fi
-  # On a shared board (board.shared=true) evaluate only this repo cards — worker DoD = "own cards Done"
-  # (multi-repo §3·§5 — consistency bug where roadmap_sync filtered but goal_check counted the whole board)
+  # On a shared board (board.shared=true — one board spanning N repos) evaluate only THIS repo's cards.
+  # ultraloop is single-repo: its DoD = "this repo's assigned slice Done", never the whole shared board.
   REPO_FILTER=""
   [ "$(cfg_get board.shared false)" = "true" ] && REPO_FILTER="$REPO"
   # Count of non-Done cards — empty on failure

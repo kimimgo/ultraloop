@@ -11,7 +11,6 @@
 - [ ] Edge-case hunting ≥1 round, every finding resolved or issue-tracked
 - [ ] CI green (lint/typecheck/test/build) — bot QA gate passed
 - [ ] Test coverage ≥ `config.coverage_target` (default 80%)
-- [ ] **Reliability gate** (when `config.eval.enabled`): critical cards pass^k=100%, others pass@k ≥ `eval.capability_threshold` — evidence `.claude/evals/<card>.log` (eval-harness, supplemented by §9.7 deterministic assertions)
 - [ ] **Single-command startup** works (README ↔ E2E up contract match, rule packs `references/rules/*` observed)
 - [ ] CD proven: `merge → staging auto-deploy → smoke → production HITL approval → deploy`
 - [ ] Security/secrets: 0 plaintext secrets, only `.env.e2e`/Secrets, credential lifetime checked (`observability.md`)

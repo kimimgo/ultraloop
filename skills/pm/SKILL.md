@@ -39,9 +39,10 @@ You are the **planning half** of the ultraloop plugin. You take a mission, build
 1. **Bootstrap auto-enforcement.** If the target repo lacks the `.claude/.ultraloop-bootstrapped` marker, run
    `bash ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap_repo.sh` **immediately** (idempotent). Proceed only on success; on failure
    report clearly and stop (no silent degrade). If the marker exists, pass.
-2. **Arm Workflow orchestration.** If `config.workflow.orchestrate: true` (default), fan out the planning chain (strategy,
-   roadmap, red team, spec, prioritization) with the **Claude Code Workflow tool** — subagent model/effort/max_subagents =
-   `config.workflow.by_phase.pm` (default opus·xhigh·4). Details: `${CLAUDE_PLUGIN_ROOT}/references/workflow-orchestration.md`.
+2. **Arm the dynamic workflow.** If `config.workflow.orchestrate: true` (default), run the planning chain as a dynamic
+   workflow via the shipped script — `Workflow({scriptPath: "${CLAUDE_PLUGIN_ROOT}/workflows/pm-chain.workflow.js", args: {mission, repo, context}})`.
+   Planning stages are reasoning-cast (they inherit the main session model — run pm on your strongest model); the red team
+   is a barrier: no spec entry without passing. Methodology: `${CLAUDE_PLUGIN_ROOT}/references/dynamic-workflow-design.md`.
    ⚠️ This "Workflow" is the Claude Code multi-agent tool — different from GitHub **built-in workflows** (board side).
 3. **Call dependency skills (no reimplementation).** Board structure/setup = `gh-roadmap` (required authority), PM chain =
    `product-strategy`·`outcome-roadmap`·`strategy-red-team`·`prioritization-frameworks`, spec = `speckit`.
@@ -103,8 +104,10 @@ From strategy to issue creation, **call the proven PM skills in order**. If one 
 If there is no repo yet, first `gh repo create` + `bash ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap_repo.sh` (idempotent —
 labels, board, fields, environments, goal hook). For board structure (3-tier, sub-issue, blocked-by, roadmap views) use `gh-roadmap`.
 
-When `config.workflow.orchestrate` is on, fan out this chain with the **Claude Code Workflow tool** (independent multi-perspective
-steps in parallel, dependent steps as a pipeline, with `strategy-red-team` as a barrier that blocks spec entry until it passes). `${CLAUDE_PLUGIN_ROOT}/references/workflow-orchestration.md`.
+When `config.workflow.orchestrate` is on, run this chain via the shipped `pm-chain` workflow script (independent
+multi-perspective steps in parallel, dependent steps as a pipeline, red team as the barrier that blocks spec entry until it
+passes). The workflow returns a **plan as data** — board registration stays yours, through the gh-roadmap scripts.
+Methodology and casting: `${CLAUDE_PLUGIN_ROOT}/references/dynamic-workflow-design.md`.
 
 ---
 
@@ -152,3 +155,4 @@ When planning is done:
 | Definition of done (acceptance-criteria baseline) | `${CLAUDE_PLUGIN_ROOT}/references/definition-of-done.md` |
 | Board structure/setup authority | `gh-roadmap` skill (separate) |
 | Dependency skill map (orchestration targets) | `${CLAUDE_PLUGIN_ROOT}/references/dependencies.md` |
+| ★ Dynamic workflow design (patterns · casting · codification) | `${CLAUDE_PLUGIN_ROOT}/references/dynamic-workflow-design.md` |

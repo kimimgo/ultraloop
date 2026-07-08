@@ -33,9 +33,6 @@ silently degrade on absence — leave a clear note in the PROGRESS view/console.
 
 | Stage | Skill invoked (if present) | ultraloop role |
 |---|---|---|
-| **Design system** (design skill, runs before pm) | `taste-design` · **`taste-skill`** (anti-slop direction, audit-first) | DESIGN.md foundation — full map in `design-tools-map.md` |
-| **Design craft/polish** (design skill) | **`impeccable`** (hierarchy·IA·a11y·motion·microcopy) · `artifact-design` · `frontend-design` | Mockup polish at INTEGRATE + top-gap fixes at ITERATE |
-| **Design eval (GAN)** (design skill) | `tri-model-review` · codex/gemini cold | Score mockups until the target |
 | Strategy | `product-strategy` | Receive the product strategy canvas |
 | Roadmap | `outcome-roadmap` | output→outcome roadmap (checked every loop) |
 | Adversarial validation | `strategy-red-team` | Attack assumptions + kill criteria — **no spec entry without passing** |
@@ -43,10 +40,8 @@ silently degrade on absence — leave a clear note in the PROGRESS view/console.
 | Prioritization | `prioritization-frameworks` | Prioritize problems with RICE/ICE |
 | **Board** | **`gh-roadmap`** ★ | Board · fields · views · roadmap · built-in workflows · multi-repo |
 | Tier1 TDD | `tdd-workflow` | Unit/integration (Red→Green→Refactor) |
-| Quality (optional) | `gan-style-harness` / `gan-evaluator` | Score E2E evidence against a rubric |
-| Reliability eval (optional) | `eval-harness` | Card verification via pass@k/pass^k — DoD reliability gate (`config.eval.enabled`) |
 | Verify · review · deploy (guided) | `gstack-qa` · `gstack-review` · `gstack-investigate` · `gstack-ship` | Use if present (own scripts are the fallback) |
-| Multi-agent fan-out | (Claude Code **Workflow tool**) | Stage parallelization — `workflow-orchestration.md` |
+| Multi-agent fan-out | (Claude Code **Workflow tool**) | Dynamic workflows — `dynamic-workflow-design.md` + shipped `workflows/` scripts |
 
 ---
 
@@ -54,7 +49,6 @@ silently degrade on absence — leave a clear note in the PROGRESS view/console.
 
 - **Invoke if present, fall back if absent.** When a skill is missing, ultraloop does the work itself with the same output format. State the absence explicitly (no silent degrade).
 - **The gstack family** is *guided* in loop's E2E/review/deploy stages (not required). ultraloop's `e2e_run.sh` · `ship_pr.sh` are the fallback paths.
-- **eval-harness** only when `config.eval.enabled=true` — critical cards (`eval.critical_labels`) require pass^k=1.0, others pass@k. If the skill is absent, ultraloop falls back to running the core tests/E2E `eval.max_k` times (same output format, `.claude/evals/`).
 - **The bootstrap probe** checks skill availability (`~/.claude/skills`, `claude plugin list`). Warn clearly if gh-roadmap is missing.
 - None of these invocations/tools are **exposed in externally visible text on boards/issues/PRs/commits** (`messaging.md` — human-written product language only).
 
@@ -66,8 +60,8 @@ built-in path, loudly.** No gstack → the probe prints ONE summary line
 (`gstack lane: not installed — optional, every step falls back`) and nothing else changes.
 
 **The load-bearing split — interactive vs headless.** A blocking prompt inside an unattended
-loop is a stall. So: *interactive* gstack skills belong only to human-present phases
-(pm, design); the overnight loop may call only *headless-safe*, report-style skills.
+loop is a stall. So: *interactive* gstack skills belong only to the human-present phase
+(pm); the overnight loop may call only *headless-safe*, report-style skills.
 *Advisory* means gstack drafts/reviews but **ultraloop scripts keep the pen** — gstack
 output never directly writes boards, PRs, versions, or deploys.
 
@@ -76,10 +70,6 @@ output never directly writes boards, PRs, versions, or deploys.
 | pm | pre-strategy problem sharpening | office-hours | interactive | once per mission, optional | product-strategy alone |
 | pm | spec review gauntlet BEFORE board registration | autoplan (or plan-ceo/eng/devex-review) | interactive | once per spec | strategy-red-team only |
 | pm | spec authoring when speckit absent | spec | interactive | per spec | direct authoring |
-| design | FOUNDATION design system | design-consultation | interactive | once per project | taste-design |
-| design | ITERATE when the score stalls | design-shotgun | interactive | on stall | manual iteration |
-| design | AUDIT companion (designer's eye) | design-review | interactive | per iteration | audit.js only (machine gate stays) |
-| design | VERIFY when playwright-cli absent | browse | headless-safe | per verify | playwright-cli |
 | loop | 3rd consecutive gate failure, BEFORE parking | investigate | headless-safe | on-failure-only | park + approval queue |
 | loop | E2E stage | qa-only (report-only) | headless-safe | per card | e2e_run.sh |
 | loop | pre-merge review (alongside rulepack gates) | review | headless-safe | per card | rulepack gates only |
@@ -87,7 +77,7 @@ output never directly writes boards, PRs, versions, or deploys.
 | loop | deploy | land-and-deploy | **advisory-only** — `mark_deployed.sh` stays the SOLE prod-deployed writer (HITL) | per deploy | mark_deployed.sh |
 | loop | post-deploy watch | canary | headless-safe, read-only | post-deploy | notify.sh warn |
 | loop | milestone close | health + retro | headless-safe | per milestone | north-star verdict question only |
-| workers | inside bypassPermissions sessions | careful / guard | behavioral mitigation, **NOT a boundary** | always suggest | none (real boundaries: worktree isolation, recursion guard, HITL marker) |
+| loop | inside bypassPermissions sessions | careful / guard | behavioral mitigation, **NOT a boundary** | always suggest | none (real boundaries: worktree isolation, HITL marker) |
 
 **Contract rules (all mandatory):**
 - **Evidence adapter** — a headless call that leaves no ultraloop-shaped evidence did not

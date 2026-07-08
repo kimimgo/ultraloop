@@ -1,4 +1,4 @@
-# Notifications & approvals — async queue + gateway bot + risk levels (notify-approval)
+# Notifications & approvals — async file queue + risk levels (notify-approval)
 
 ## 1. Non-blocking notifications (REQ-NTF-1)
 Routine events (loop start/end · push · CI · E2E capture · board/roadmap edits · heartbeat) notify Discord and then **proceed**.
@@ -14,9 +14,10 @@ approval_queue.sh drain                            # step ①: unpark resolved i
 The queue is file-based (`${TMPDIR:-/tmp}/ultraloop-approvals/`). exit 0=Y (proceed) · 1=N (alternative/turn into an issue) · 4=hold (no response within TTL).
 
 ## 3. Receiving channels — egress-only compatible (REQ-APR-2)
-- A **Discord gateway bot (outbound WebSocket)** receives **[Y]/[N] buttons + reason** — no inbound ingress needed
-  (compatible with corporate DLP). `scripts/approve_bot.py` (per-approval) or `assets/discord/gateway-bot.example.py` (daemon).
-- Secondary: bot polling, **console modal** (`console_modal.sh`, when attended).
+- **Result file** (primary): a human answers by writing the decision to the queue item —
+  `echo Y > ${TMPDIR:-/tmp}/ultraloop-approvals/<id>.result` (or `N`). The notification message carries this exact
+  command, so approving from any shell (including over SSH) is one line. Outbound-only, no inbound ingress needed.
+- **Console modal** (`console_modal.sh`, when attended): an interactive Y/N prompt that writes the same result file.
 - Response: Y → unpark and proceed · N → alternative/turn into an issue.
 
 ## 4. hold-TTL escalation (REQ-APR-3)

@@ -30,7 +30,7 @@ probe python3 "recommended for config/board parsing"
 TOKEN_ENV="$(cfg_get roadmap.token_env UE_PROJECT_TOKEN)"
 [ -n "${!TOKEN_ENV:-${GH_TOKEN:-}}" ] && echo "  ✓ project-scope token($TOKEN_ENV)" || echo "  ✗ project-scope token  (no Projects v2 automation → fallback Milestone+labels, roadmap-model §6)"
 DTOKEN_ENV="$(cfg_get discord.token_env ULTRALOOP_DISCORD_BOT_TOKEN)"
-[ -n "${!DTOKEN_ENV:-}" ] && echo "  ✓ discord bot token($DTOKEN_ENV)" || echo "  · discord bot token missing  (approval gateway fallback=webhook/console, notify-approval.md)"
+[ -n "${!DTOKEN_ENV:-}" ] && echo "  ✓ discord token($DTOKEN_ENV)" || echo "  · discord token missing  (notifications fall back to console; approvals = result file, notify-approval.md)"
 echo "  · browser MCP availability is probed by the agent in the first loop ① and recorded in the PROGRESS view"
 
 # ── 0.1 dependency skill probe (references/dependencies.md) — gh-roadmap=board authority (required), rest=fallback possible ──
@@ -54,10 +54,10 @@ for d in "$HOME/.claude/skills/gstack" "$HOME"/.claude/plugins/*/skills/gstack; 
 done
 if [ -n "$GSTACK_HOME_DIR" ]; then
   GS_HAVE=0; GS_MISS=""
-  for s in office-hours autoplan spec design-consultation design-shotgun design-review browse investigate qa-only review ship land-and-deploy canary health retro; do
+  for s in office-hours autoplan spec investigate qa-only review ship land-and-deploy canary health retro; do
     if [ -e "$GSTACK_HOME_DIR/$s" ] || [ -e "$GSTACK_HOME_DIR/${s}/SKILL.md" ]; then GS_HAVE=$((GS_HAVE+1)); else GS_MISS="$GS_MISS $s"; fi
   done
-  echo "  ✓ gstack lane: $GS_HAVE/15 entries available ($GSTACK_HOME_DIR)${GS_MISS:+ — missing:$GS_MISS}"
+  echo "  ✓ gstack lane: $GS_HAVE/11 entries available ($GSTACK_HOME_DIR)${GS_MISS:+ — missing:$GS_MISS}"
 else
   echo "  · gstack lane: not installed — optional, every step falls back (dependencies.md §4)"
 fi
@@ -233,21 +233,21 @@ else
 fi
 echo "  · fresh=branch lanes from origin/<default> (recommended) | head=on top of unpushed local commits (worktree-strategy.md §0)"
 
-# ── 6.6 ★ Workflow orchestration settings (.claude/settings.json, references/workflow-orchestration.md) ──
-#  Records config.workflow model/effort/max_subagents = defaults for Workflow-stage subagents.
-#  ⚠️ The skill cannot force the session model itself (user --model) — this is a recommended hint. by_phase overrides are read directly by SKILL.
-echo "[workflow orchestration]"
-WF_MODEL="$(cfg_get workflow.agents.model opus)"
-WF_EFFORT="$(cfg_get workflow.agents.effort xhigh)"
-WF_MAX="$(cfg_get workflow.agents.max_subagents 8)"
+# ── 6.6 ★ Dynamic-workflow casting defaults (.claude/settings.json, references/dynamic-workflow-design.md §2) ──
+#  Records the casting policy (model×effort per stage type) as a hint for Workflow-stage subagents.
+#  ⚠️ The skill cannot force the session model itself (user --model) — casting applies to SUBAGENTS.
+echo "[dynamic workflow casting]"
+WF_CODE_MODEL="$(cfg_get workflow.casting.coding.model sonnet)"
+WF_CODE_EFFORT="$(cfg_get workflow.casting.coding.effort xhigh)"
+WF_MAX="$(cfg_get workflow.max_subagents 8)"
 mkdir -p .claude
 if command -v python3 >/dev/null 2>&1; then
-  python3 - "$WF_MODEL" "$WF_EFFORT" "$WF_MAX" <<'PY' 2>/dev/null && echo "  ✓ workflow recorded: model=$WF_MODEL effort=$WF_EFFORT max_subagents=$WF_MAX" || echo "  · settings.json merge failed — record manually"
+  python3 - "$WF_CODE_MODEL" "$WF_CODE_EFFORT" "$WF_MAX" <<'PY' 2>/dev/null && echo "  ✓ casting recorded: coding=$WF_CODE_MODEL·$WF_CODE_EFFORT (reasoning/verification inherit the main session) max_subagents=$WF_MAX" || echo "  · settings.json merge failed — record manually"
 import json,sys,os
 model,effort,mx=sys.argv[1],sys.argv[2],int(sys.argv[3])
 p=".claude/settings.json"
 d=json.load(open(p)) if os.path.exists(p) and os.path.getsize(p) else {}
-d.setdefault("ultraloop",{})["workflow"]={"model":model,"effort":effort,"max_subagents":mx}
+d.setdefault("ultraloop",{})["workflow"]={"casting":{"coding":{"model":model,"effort":effort}},"max_subagents":mx}
 json.dump(d,open(p,"w"),ensure_ascii=False,indent=2)
 PY
 else

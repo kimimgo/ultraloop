@@ -37,5 +37,5 @@ language only. It must read as work a human did directly.
 - **Replacement examples**: "excluded from the eng automated loop" → "kept apart from the development work queue (planning/exploration stage)" ·
   "handled in lane ue-12" → describe only the work itself · "the agent merged it" → "merge completed".
 - If already exposed, amend to neutral wording with `gh issue comment <n> --edit-last` (or PR/commit amend).
-- If internal operational signals (lane IDs · session names · worker identifiers) are needed, keep them **off the board** (local `PROGRESS.md` view · logs only).
+- If internal operational signals (lane IDs · session names) are needed, keep them **off the board** (local `PROGRESS.md` view · logs only).
 - Rationale · recurrence case = `references/failure-modes.md` FM14.

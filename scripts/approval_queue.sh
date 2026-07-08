@@ -2,7 +2,7 @@
 # approval_queue.sh — async approval queue (high-risk, non-blocking). File based.
 #   enqueue <action> <risk> [ttl_min]  : add to the queue + notify (parking the lane is done by the caller on the board)
 #   drain                               : check resolved items → 0=announce pending Y items to process / non-blocking
-#   wait <id> [ttl_min]                 : wait for the result of a specific item (gateway bot/console)
+#   wait <id> [ttl_min]                 : wait for the result of a specific item (result file: echo Y|N > <id>.result, or console_modal.sh when attended)
 #   exit 0=Y approved · 1=N rejected · 4=hold (no answer within TTL → escalation/defer)
 set -uo pipefail
 SDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,11 +18,7 @@ case "$CMD" in
     ACTION="${2:?action}"; RISK="${3:-high}"; TTL="${4:-$TTL_DEF}"
     ID="$(new_id)"
     { echo "id=$ID"; echo "action=$ACTION"; echo "risk=$RISK"; echo "ttl_min=$TTL"; echo "ts=$(date +%s)"; } > "$QDIR/$ID.pending"
-    bash "$SDIR/notify.sh" approval-pending "ultraloop approval needed (high-risk)" "[$RISK] $ACTION — awaiting response (TTL ${TTL}m). This lane is Parked; other lanes continue." >/dev/null 2>&1 || true
-    # if a gateway bot is available, post buttons (per-approval). Otherwise console/polling.
-    if [ "$(cfg_get discord.mode gateway_bot)" = "gateway_bot" ] && command -v python3 >/dev/null 2>&1; then
-      ( python3 "$SDIR/approve_bot.py" "$ID" "$ACTION" "$RISK" "$TTL" >/dev/null 2>&1 & ) || true
-    fi
+    bash "$SDIR/notify.sh" approval-pending "ultraloop approval needed (high-risk)" "[$RISK] $ACTION — awaiting response (TTL ${TTL}m). This lane is Parked; other lanes continue. Reply: echo Y > $QDIR/$ID.result" >/dev/null 2>&1 || true
     echo "$ID"
     ;;
   drain)

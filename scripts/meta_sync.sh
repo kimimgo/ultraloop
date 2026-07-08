@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
-# meta_sync.sh — deterministic core of the N-repo meta loop (multi-repo-orchestration.md §4 ①)
-#   assign    : JSON lines of assignable issues per repo (Ready status + no blocked label + all depends_on met).
-#               The cross-repo Depends-on gate lives here — dependency tokens (O5, C3, CP-HB...) are resolved as
-#               "leading codes in board card titles", so repo boundaries do not matter. Unresolvable token = unmet (safe default).
-#   rollup    : per-repo sections + overall rollup markdown (appended to PROGRESS).
+# meta_sync.sh — deterministic board sync core (loop ① plan check)
+#   assign    : JSON lines of assignable issues (Ready status + no blocked label + all depends_on met).
+#               The Depends-on gate lives here — dependency tokens (O5, C3, CP-HB...) are resolved as
+#               "leading codes in board card titles". Unresolvable token = unmet (safe default).
 #   reconcile : idempotent convergence of issue state ⇄ board card (borrows the reconciler pattern of
 #               dan323/easier-life-skills gh-project-sync; a tasks.yml mirror violates SoT so it is excluded) —
 #               CLOSED but card≠Done → converge to Done (automatic), Done but issue OPEN → warn only
 #               (closing the issue needs judgment; auto close forbidden). Supports --dry-run.
 #   self-test : zero network — injects an in-memory fixture via UE_RAW to verify the *actual code paths* of assign/reconcile.
 # usage:
-#   meta_sync.sh assign [--verbose] | rollup | reconcile [--dry-run] | self-test
+#   meta_sync.sh assign [--verbose] | reconcile [--dry-run] | self-test
 # exit 0=ok · 1=self-test failed · 3=board not configured · 5=API failure
 set -uo pipefail
 SDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -121,21 +120,6 @@ elif mode == "reconcile":
             print(f"WARN card Done but issue OPEN — {card['repo']}#{card['number']} (issue close is a manual call)", file=sys.stderr)
         elif "blocked" in card["labels"] and card["status"] == "In-Progress":
             print(f"WARN blocked label but In-Progress — {card['repo']}#{card['number']}", file=sys.stderr)
-elif mode == "rollup":
-    by_repo = collections.defaultdict(list)
-    for card in cards: by_repo[card["repo"]].append(card)
-    print(f"## N-repo rollup (shared board · {len(cards)} cards total)\n")
-    for repo in sorted(by_repo):
-        cs = by_repo[repo]
-        st = collections.Counter((c["status"] or "(unset)") for c in cs)
-        blocked = sum(1 for c in cs if "blocked" in c["labels"])
-        line = " · ".join(f"{k} {v}" for k, v in sorted(st.items()))
-        print(f"### {repo} — {len(cs)} cards\n- status: {line}" + (f" · 🔒blocked {blocked}" if blocked else ""))
-        for c in cs:
-            if c["status"] == "In-Progress": print(f"  - ▶ #{c['number']} {c['title'][:60]}")
-        print()
-    total = collections.Counter((c["status"] or "(unset)") for c in cards)
-    print("**Total**: " + " · ".join(f"{k} {v}" for k, v in sorted(total.items())))
 PY
 )" || exit $?
 

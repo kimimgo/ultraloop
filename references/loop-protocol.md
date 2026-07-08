@@ -22,21 +22,12 @@ the per-loop workflow is composed dynamically based on issue nature · stack · 
  ④ push          triggers layered CI
  ⑤ CI green      watch until all bot QA (lint/type/test/build) passes (ship_pr.sh watches)
  ⑥ ★pre-merge E2E real deploy (lane-isolated ports) → agent click/shell scenarios → capture evidence (e2e_*.sh)
-                · optional GAN quality loop (config quality.gan_evaluator=true): a gan-evaluator agent scores the E2E
-                  evidence against the issue's acceptance-criteria rubric → below threshold = rework · re-evaluate. ★max_rounds
-                  hard guard — on overflow, that lane goes Parked + approval queue (no infinite quality loops)
-                · optional reliability eval (config eval.enabled=true): critical cards (eval.critical_labels) repeat the core
-                  tests/E2E to require pass^k=1.0; others measure pass@k≥threshold (eval-harness skill,
-                  else fall back to max_k repeats) → results in .claude/evals/<card>.log. ★max_k hard guard
 [orchestrator]
  ⑦ join+merge    squash-merge only lanes that passed E2E (merge-ready) · resolve conflicts serialized
  ⑧ board update  card Done + E2E-Evidence path · bugs/edge cases → new issues · roadmap edits (notify-only+audit)
                 — card moves · fields · evidence go through `board.sh status|set|evidence` (unified graphql CLI). No raw-graphql hand-crafting.
  ⑨ end evaluation board fully Done + DoD + prod HITL? — no → pace the next iteration (/loop) · yes → completion report
 ```
-> In N-repo shared-board mode, ① additionally includes a **self inbox check** (MCP team_inbox_peek/team_inbox_consume, or HTTP
-> `GET /team/inbox/<session-name>?consume=true`, example broker API) — the meta layer's instructions persist in the message broker (`multi-repo-orchestration.md §5`).
-
 > **Context mirror refresh (① plan check, best-effort)**: refresh the local project-context mirror from the board README (SoT) so a
 > fresh session injects current context — `roadmap_readme.sh cache .claude/.ultraloop-context.md` (one cheap read; skip on failure). pm
 > writes/updates the board README on scope change; this keeps the SessionStart brief (linked repos · collaborators · project rules) live.
@@ -47,6 +38,12 @@ the per-loop workflow is composed dynamically based on issue nature · stack · 
 > `north-star.md §4.5`), creates them idempotently with `issue_populate.sh`, and places them Ready with the 3-piece set — feeding ② lane
 > forming. Under `autonomy: card`, skip this: only pm's pre-written Ready cards are picked. Strategic drift still routes to gate re-entry
 > (§roadmap-model 5.1), never to breeding.
+
+> **Milestone envelope (default — `engine.autonomy: milestone`)**: steps ②~⑧ are carried by ONE dynamic-workflow
+> invocation per milestone (`workflows/milestone-fanout.workflow.js`, dynamic-workflow-design.md §0.5): a reasoning agent
+> builds the card dependency graph, validated waves of lanes run ③~⑥ in parallel, and a serial per-wave integrator does
+> ⑦~⑧ inside the workflow. The orchestrator keeps ① and ⑨ plus the milestone close-out (north-star.md §4.4). Under
+> `autonomy: card` the orchestrator runs ②~⑧ itself with card-batch fan-out (`lane-fanout.workflow.js`) as written above.
 
 ## 1. Principles
 - **E2E is pre-merge (⑥)** — only E2E-passing code lands on main. Preserves "main always deployable" (REQ-LOOP-1).
@@ -61,7 +58,9 @@ overlap** simultaneously (minimizes merge conflicts). Detailed worktree rules: `
 
 ## 3. Dynamic workflow (Tier 1)
 If the issue is "bug fix", write the reproducing test first; "new feature" → acceptance criteria → failing test → implementation;
-"refactor" → keep regression tests green — the cycle's workflow is composed to fit the issue's nature. Details in `tdd-layer.md`.
+"refactor" → keep regression tests green — the cycle's workflow is composed to fit the issue's nature. The design method
+(shape → dependencies → uncertainty → casting → budget) and the reusable script library are `dynamic-workflow-design.md`;
+TDD specifics in `tdd-layer.md`.
 
 > ⚠️ **Editing `specs/` (spec body · acceptance criteria) during the loop is forbidden — frozen state** (§9.7). If a spec change is
 > needed, only via gate re-entry (`roadmap-model.md §5.1`). Step ⑧'s "roadmap edits (notify-only)" means **adding/moving board cards**

@@ -5,17 +5,14 @@
 <h1 align="center">ultraloop</h1>
 
 <p align="center">
-  <em>An autonomous software-engineering loop for Claude Code — split into three role-separated skills:<br>
-  one designs the UI/UX, one plans and writes the board, the other reads the board and ships it.</em>
+  <em>An autonomous software-engineering loop for Claude Code, built from exactly three mechanisms:<br>
+  a <strong>GitHub Projects board</strong> as the single source of truth (WHAT),<br>
+  <strong>dynamic multi-agent workflows</strong> designed per work item and codified into reusable scripts (HOW),<br>
+  and a <strong>goal engine</strong> that self-paces and refuses to stop before Done (WHEN).</em>
 </p>
 
 <p align="center">
-  <em>ultraloop is an <strong>orchestrator</strong>: it doesn't reinvent the wheel — it calls proven skills
-  (board, strategy, spec, TDD, review, ship) and stitches them into one faithful loop.</em>
-</p>
-
-<p align="center">
-  <strong>v0.10.0</strong> &nbsp;·&nbsp; <code>/ultraloop:design</code> &nbsp;·&nbsp; <code>/ultraloop:pm</code> &nbsp;·&nbsp; <code>/ultraloop:loop</code>
+  <strong>v0.12.0</strong> &nbsp;·&nbsp; <code>/ultraloop:pm</code> &nbsp;·&nbsp; <code>/ultraloop:loop</code>
 </p>
 
 ---
@@ -37,41 +34,70 @@ can silently rewrite its own scope, skip tests, and leave a board that no longer
 The board (GitHub Projects v2) is the **single source of truth**. `pm` fills it; `loop` drains it.
 Neither can do the other's job — the separation is enforced at the tool-permission layer, not by trust.
 
-## Core ideas
+## The trinity
 
-- **Two engines, faithfully reproduced** — `/loop` (self-pacing via `ScheduleWakeup`/`CronCreate`,
-  waking on events with `Monitor`) and `/goal` (a Stop-hook gate that refuses to stop until the
-  Definition of Done is met, with hard guards against runaway loops).
-- **TDD-first** — every change starts from a failing test (Red → Green → Refactor).
-- **E2E before merge** — `main` only receives code that passed a *real* production E2E run, captured
-  as evidence and attached to the board card. Running ≠ correct.
-- **Reliability gate (optional)** — with `eval.enabled`, release-critical cards must clear `pass^k`
-  (every repeat passes) and others a `pass@k` bar, so a flaky change can't slip through one lucky run.
-- **Faithful board** — `loop` moves each card through `In Progress → Done` and logs decisions,
-  blockers, and results as it goes. Board/issue/PR/commit text is written in plain product language —
-  it never names a tool, agent, or automation.
-- **Hard safety rails** — per-repo state isolation, loop/iteration/wall-clock budgets, a
-  dead-man's-switch, a stall guard, fail-open hooks, and a hard guard against recursive
-  session spawning (workers are marked and refused at the script layer).
+```
+board (gh Projects v2)  = WHAT to work on   — single source of truth (pm fills, loop drains)
+dynamic workflow        = HOW to work on it — designed per card, codified when it recurs
+goal (/loop + /goal)    = WHEN to stop      — self-pacing + a stop-gate that re-checks the DoD
+```
+
+- **Dynamic workflow ★** — the loop doesn't run one fixed pipeline. For each work item it *designs* an
+  orchestration (shape → dependencies → uncertainty → casting → budget), executes it with the Claude Code
+  Workflow tool, and **codifies recurring shapes into reusable scripts** (`workflows/*.workflow.js`,
+  parameterized by `args`, resumable). Casting is code, not convention: **coding agents run sonnet·xhigh;
+  reasoning and verification stages inherit the main session** (run it on your strongest model).
+  Methodology: [`references/dynamic-workflow-design.md`](references/dynamic-workflow-design.md).
+- **Goal engine** — `/loop` (self-pacing via `ScheduleWakeup`/`CronCreate`, waking on events with `Monitor`)
+  plus `/goal` (a Stop-hook gate that refuses to stop until the Definition of Done is met), with hard guards
+  against runaway loops. [`references/engine-loop-and-goal.md`](references/engine-loop-and-goal.md).
+- **Board = SoT** — every card carries a `Goal-link:` to a milestone goal, which chains to one north star
+  (no filler cards). `loop` moves each card through `In Progress → Done` and logs decisions, blockers, and
+  evidence as it goes. One board may span N repos (a gh-roadmap multi-repo link); ultraloop stays
+  single-repo — each repo runs its own session, executing only its assigned slice (`board.shared: true`).
 
 ## Philosophy
 
 1. **The board is the single source of truth.** Scope, priority, and progress live on the
    GitHub Projects board — never in side state. `pm` fills it; `loop` drains it.
 2. **Separation of powers, enforced — not trusted.** `pm` owns *what & why* and has **no
-   `Write`/`Edit` tool**; `loop` owns *how* and cannot define roadmap or scope. The wall is
-   at the tool-permission layer.
-3. **Plain product language.** Board / issue / PR / commit text never names a tool, agent, or
+   `Write`/`Edit` tool**; `loop` owns *how* and cannot define roadmap or scope.
+3. **Workflows are designed, then codified.** Improvise a shape once; the second time it recurs,
+   it becomes a script with an `args` contract. The methodology compounds instead of evaporating.
+4. **Casting is code.** Model×effort per stage type lives in config and script defaults —
+   coding = sonnet·xhigh, reasoning/verification = the main session — not in anyone's memory.
+5. **Plain product language.** Board / issue / PR / commit text never names a tool, agent, or
    automation. The history reads as human product work — portable and tool-agnostic.
-4. **Outcome over output, red-teamed first.** The roadmap is framed as user/business outcomes,
+6. **Outcome over output, red-teamed first.** The roadmap is framed as user/business outcomes,
    and its load-bearing assumptions are attacked (with kill criteria) before any spec is written.
-5. **TDD is the unit of progress.** Every change starts from a failing test: Red → Green → Refactor.
-6. **Merge is earned.** `main` only receives code that passed a *real* pre-merge production E2E,
-   captured as evidence on the card. Running ≠ correct.
-7. **Bounded autonomy.** `/loop` self-paces iterations; `/goal` gates stops. The stop-gate is
-   **always fail-open** behind lock / budget / iteration-cap guards, so the loop can never run away.
-8. **Isolated parallelism.** Build lanes run in separate git worktrees branched from a fixed
+7. **TDD is the unit of progress; merge is earned.** Every change starts from a failing test, and
+   `main` only receives code that passed a *real* pre-merge production E2E with captured evidence.
+8. **Bounded autonomy.** `/loop` self-paces; `/goal` gates stops. The stop-gate is **always
+   fail-open** behind lock / budget / iteration-cap guards, so the loop can never run away.
+9. **Isolated parallelism.** Build lanes run in separate git worktrees branched from a fixed
    base, so concurrent cards editing the same files never collide.
+
+## Dynamic workflow — the shipped library
+
+Reusable orchestration scripts, invoked as
+`Workflow({scriptPath: "${CLAUDE_PLUGIN_ROOT}/workflows/<name>.workflow.js", args: {...}})`.
+Each is also a reference implementation of the design methodology.
+
+| Script | Shape | Casting |
+|---|---|---|
+| `milestone-fanout` ★ | **one invocation = one milestone**: a reasoning agent builds the card dependency graph, code validates + schedules parallel waves, lanes execute, a serial integrator merges verified lanes wave by wave until the milestone drains | graph inherits main · lanes **sonnet·xhigh** · verifiers inherit main |
+| `lane-fanout` | one card-batch → worktree-isolated TDD lanes → per-lane adversarial verify (no merge) | lanes **sonnet·xhigh** · verifiers inherit main |
+| `pm-chain` | strategy perspectives → north star → **red-team barrier** → spec per milestone → prioritized plan | all reasoning — inherits main |
+| `adversarial-verify` | claims × diverse lenses → refuters → majority verdict | verification — inherits main |
+
+The fan-out **envelope is the milestone** — the largest scope whose design can be trusted (its contract is
+red-teamed and human-approved at the pm gate, and it has a machine drain condition + verdict question).
+Epic/board scope is never one invocation; cards are the small-run fallback.
+
+Project-specific shapes the loop codifies land in the target repo's `.claude/workflows/`, named and
+committed like any other engineering asset. Design procedure, pattern vocabulary (pipeline / barrier /
+judge panel / loop-until-dry / …), casting policy, and the codification rule:
+[`references/dynamic-workflow-design.md`](references/dynamic-workflow-design.md).
 
 ## Orchestrated skills
 
@@ -80,12 +106,11 @@ specialist skill and falls back to a built-in path if that skill isn't installed
 
 | Skill | Role |
 | --- | --- |
-| **gh-roadmap** *(bundled since v0.9.0)* | Board structure & setup authority — board, fields, views, Roadmap layout, built-in workflows, multi-repo. Ships inside this plugin (`skills/gh-roadmap/`) — no separate install; a local copy at `~/.claude/skills/gh-roadmap` takes precedence if present. |
+| **gh-roadmap** *(bundled)* | Board structure & setup authority — board, fields, views, Roadmap layout, built-in workflows, multi-repo links. Ships inside this plugin (`skills/gh-roadmap/`); a local copy at `~/.claude/skills/gh-roadmap` takes precedence if present. |
 | product-strategy / outcome-roadmap / strategy-red-team / prioritization-frameworks | The PM chain — strategy, outcome framing, assumption red-teaming, prioritization. |
 | speckit | Spec authoring. |
 | tdd-workflow | Test-driven Red → Green → Refactor. |
-| gan-* | Optional quality harnesses. |
-| **gstack lane** *(entirely optional)* | If the [gstack](https://github.com/gstackio) skill suite is installed, ultraloop calls it at mapped steps — office-hours/autoplan/spec in planning, design-consultation/shotgun/review in design, investigate/qa-only/review in the loop, health/retro at milestone close, canary post-deploy. Every entry degrades to a built-in path; **merge/deploy authority never leaves ultraloop** (gstack drafts, ultraloop scripts execute). No gstack? Nothing breaks — the probe prints one summary line and moves on. |
+| **gstack lane** *(entirely optional)* | If the [gstack](https://github.com/gstackio) skill suite is installed, ultraloop calls it at mapped steps — office-hours/autoplan/spec in planning, investigate/qa-only/review in the loop, health/retro at milestone close, canary post-deploy. Every entry degrades to a built-in path; **merge/deploy authority never leaves ultraloop** (gstack drafts, ultraloop scripts execute). No gstack? Nothing breaks — the probe prints one summary line and moves on. |
 
 Call if present, fall back if absent — loudly, never silently. (full registry with modes,
 evidence contracts, and invocation policies: `references/dependencies.md`)
@@ -139,15 +164,16 @@ flowchart TD
     B -- no --> Z{All Done + DoD + prod HITL?}
     Z -- yes --> DONE([report complete])
     Z -- no --> PACE[pace next iteration via /loop] --> A
-    B -- yes --> C[form non-conflicting lanes<br/>GC stale worktrees · per-lane worktree from baseRef]
-    C --> D[per lane: Red → Green → Refactor]
+    B -- yes --> C[milestone-fanout.workflow.js<br/>reasoning agent builds dep graph → code validates → parallel waves]
+    C --> D[per lane: Red → Green → Refactor — sonnet·xhigh<br/>worktree from merged base]
     D --> E[atomic commit → push → tiered CI]
-    E --> F{Pre-merge production E2E}
-    F -- fail --> D
-    F -- high-risk --> PARK[park lane → approval queue]
-    F -- pass --> G[squash-merge E2E-passed lanes · main stays deployable]
+    E --> F{Pre-merge production E2E + adversarial verify}
+    F -- fail --> LEFT[leftover → approval queue / next tick]
+    F -- pass --> G[serial integrator: squash-merge wave · main stays deployable]
     G --> H[update board: Done + evidence path + comment]
-    H --> PACE
+    H --> W{more waves?}
+    W -- yes --> C2[next wave from merged base] --> D
+    W -- no --> PACE
 ```
 
 ### The /goal stop-gate (safety)
@@ -174,19 +200,14 @@ you rarely call it by hand. It probes prerequisites then sets up, skipping anyth
 - **CI/CD · protection** — self-hosted runner check, `main` branch protection, staging (auto) +
   production (HITL) environments.
 - **goal stop-gate** — install the fail-open Stop hook into the target repo's `.claude/settings.json`.
-- **Workflow orchestration** — `config.workflow` records the model, effort, and `max_subagents`
-  ultraloop uses when it fans work out to orchestrated skills.
+- **Dynamic-workflow casting** — record the casting policy (coding model/effort + `max_subagents`)
+  into `.claude/settings.json` as the default for fanned-out subagents.
 - **Board via gh-roadmap golden template** — views, the Roadmap layout, and built-in workflows
   can't be created through the API, so `copyProjectV2` clones a golden template
   (`config.roadmap.template_node_id`) that already carries three role views
   (Roadmap — PM · schedule / Dev Board / Build Monitor) plus the added Horizon and Target Date fields.
 - **★ Worktree optimization** — write `worktree.baseRef` into `.claude/settings.json` from
   `config.worktree.base_ref` (default **`fresh`**). This fixes where parallel build lanes branch:
-
-  ```jsonc
-  // target-repo/.claude/settings.json  (written by bootstrap)
-  { "worktree": { "baseRef": "fresh" } }
-  ```
 
   | value | lanes branch from | use when |
   |---|---|---|
@@ -202,15 +223,15 @@ you rarely call it by hand. It probes prerequisites then sets up, skipping anyth
 ```
 ultraloop/
 ├── .claude-plugin/
-│   ├── plugin.json          # registers all three skills
+│   ├── plugin.json          # registers the skills
 │   └── marketplace.json     # this repo as a Claude Code marketplace
 ├── skills/
-│   ├── design/SKILL.md      # craft UI/UX to a verified score → hand DESIGN.md + FLOW.md to pm
 │   ├── pm/SKILL.md          # plan deeply (north star → milestone goals) → write the board
-│   ├── loop/SKILL.md        # read the board → TDD + E2E → ship
+│   ├── loop/SKILL.md        # read the board → dynamic workflows → TDD + E2E → ship
 │   └── gh-roadmap/          # bundled board authority (Projects v2 structure & setup)
-├── references/              # progressive-disclosure docs (loop, E2E, DoD, multi-repo, …)
-├── scripts/                 # the engine: roadmap sync, board I/O, worktrees, cost guard, …
+├── workflows/               # ★ reusable dynamic-workflow scripts (lane-fanout · pm-chain · adversarial-verify)
+├── references/              # progressive-disclosure docs (dynamic-workflow-design, engine, E2E, DoD, …)
+├── scripts/                 # the engine: roadmap sync, board I/O, worktrees, cost guard, goal gate, …
 ├── assets/                  # hooks (goal gate), CI workflows, templates
 └── config.example.yaml      # per-repo config (copy to your target repo root)
 ```
@@ -226,8 +247,8 @@ infrastructure. Each is checked loudly at bootstrap — nothing fails silently:
 | **Self-hosted runner** on the target repo | CI gates assume a runner you control (hosted-runner minutes burn fast in an overnight loop) | ~15 min — <https://docs.github.com/en/actions/hosting-your-own-runners> |
 | **Golden template board** *(optional)* | views, the Roadmap layout, and built-in workflows cannot be created via API — a copied template is the only automation | ~20 min once, reused forever; skip it and you get a functional fresh board without the Roadmap views (`skills/gh-roadmap/references/golden-template-setup.md`) |
 
-Discord notifications and the approval bot are optional; the console approval queue is the
-zero-infra fallback.
+Discord notifications are optional (console fallback); approvals are a file queue answered from any
+shell — zero extra infrastructure.
 
 ## Quickstart
 
@@ -237,21 +258,16 @@ zero-infra fallback.
 /plugin install ultraloop@ultraloop
 
 # 2. In your target repo, drop a config at the repo root
-#    (installed plugin lives under ~/.claude/plugins/cache/ultraloop/…, or just let
-#     /ultraloop:pm seed it — bootstrap copies the example on first run)
+#    (or just let /ultraloop:pm seed it — bootstrap copies the example on first run)
 cp ~/.claude/plugins/cache/ultraloop/ultraloop/*/config.example.yaml ./ultraloop.config.yaml 2>/dev/null \
   || echo "skip — /ultraloop:pm will seed it"
 #    edit `repo:` and the mission, leave the rest on `auto`
 
-# 3. Design (optional, runs first) — UX flows before screens, machine-audited details,
-#    cold task-walkthroughs, iterate to a verified score → hand off DESIGN.md + FLOW.md
-/ultraloop:design
-
-# 4. Plan — north star & per-milestone goals first, then milestones, cards (each with a
+# 3. Plan — north star & per-milestone goals first, then milestones, cards (each with a
 #    goal-link line), acceptance criteria
 /ultraloop:pm
 
-# 5. Loop — reads the approved board and ships it, autonomously
+# 4. Loop — reads the approved board and ships it, autonomously
 /ultraloop:loop
 ```
 
@@ -265,15 +281,15 @@ cp ~/.claude/plugins/cache/ultraloop/ultraloop/*/config.example.yaml ./ultraloop
 ultraloop is designed to run unattended for hours, so every loop is bounded:
 
 - **Budgets** — `max_loops` and `max_wall_clock_hours` are enforced deterministically; reaching one
-  stops the loop and reports *why it is unfinished* rather than churning. (`max_tokens` is a reserved
-  field — token accounting is delegated to the session harness's own limits.) A completed run resets
+  stops the loop and reports *why it is unfinished* rather than churning. A completed run resets
   its counters automatically; starting a fresh run after a budget-stop uses `cost_guard.sh --reset`.
 - **Run scope** — `engine.goal.scope: "milestone:<title>"` makes a run end when THAT milestone is
   drained instead of the whole board: the goal gate counts only its issues, the loop is handed only
-  its Ready cards, and the deploy marker is per-milestone. Per-run goals (north-star milestone
-  verdict questions) get a machine-enforced counterpart. Default `"board"` keeps classic semantics.
+  its Ready cards, and the deploy marker is per-milestone. Default `"board"` keeps classic semantics.
 - **Stall guard** — if the same blocker repeats N times with zero board progress, it escalates for a
   human instead of busy-looping.
+- **Bounded fan-out** — workflow concurrency ≤ `workflow.max_subagents`; loop-shaped patterns carry
+  dry-out caps in code; nothing inside a workflow spawns sessions.
 - **Per-repo state** — loop counters, locks, and goal state are namespaced per repository, so
   concurrent loops never clobber each other.
 - **HITL for production** — staging is autonomous; production deploys require a human approval gate.
@@ -283,7 +299,7 @@ ultraloop is designed to run unattended for hours, so every loop is bounded:
 Everything project-specific lives in one `ultraloop.config.yaml` at your target repo's root. Most
 fields can stay empty/`auto` — the loop probes the environment and decides per project. See
 [`config.example.yaml`](config.example.yaml) for the full, annotated schema (engine, board, budgets,
-E2E, multi-repo).
+E2E, workflow casting).
 
 ## License
 
