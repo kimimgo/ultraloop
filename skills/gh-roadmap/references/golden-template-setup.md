@@ -18,17 +18,24 @@ Full checklist: `assets/template-spec.md`.
    ⚠️ **Field prerequisites**: the target views below reference `Design-Doc`, `Stage`, and `Wave`, so these fields must
    exist on the template **before** you build the views — a view cannot group/column by or show a field that isn't there yet.
 3. **Views — 4 target views** (the most important part — impossible via the API): the golden template board
-   (kimimgo/projects/1, node `PVT_kwHOAUMds84BQdkb`, currently empty) must be built with the 4 views below.
-   Layout is a means; each view's identity is **"who uses it to see what"**.
-   - **Roadmap — PM · Schedule**: New view → Layout = **Roadmap**. Date field = `Target Date` (Start Date if needed),
-     drawing Target Date bars. Group by `Horizon` (Long-term/Mid-term/Short-term). → A human PM plans and monitors the
-     big picture of schedule, milestones, and versions. Project status updates (ON_TRACK/AT_RISK) also happen here.
-   - **Dev Board**: Layout = **Board**, Column by `Status`. Set Column limit (WIP), (optional) assignee filter.
+   (kimimgo/projects/1, node `PVT_kwHOAUMds84BQdkb`; fields are already provisioned via `board.sh ensure-fields`)
+   must be built with the 4 views below. Layout is a means; each view's identity is **"who uses it to see what"**.
+   The fresh board opens with one default "View 1" (Table) — rename it into view ① rather than deleting it.
+   - ① **Roadmap — PM · Schedule**: rename View 1 → click the view's ▾ → Layout = **Roadmap**.
+     In the view settings: Dates = `Start Date` → `Target Date` (draws duration bars; Target alone gives dots),
+     Group by = `Horizon`, Zoom = Month. Markers: enable Milestones. Sort: `Target Date` ascending.
+     → A human PM plans and monitors the big schedule picture. Status updates (ON_TRACK/AT_RISK) also happen here.
+   - ② **Dev Board**: New view → Layout = **Board**. Column by = `Status` (columns appear in option order:
+     Backlog → Ready → In-Progress → In-Review → E2E → Done → Blocked → Parked). Card preview fields: show
+     `Priority` · `Size` · `Stage`. Optional: column limit (WIP) on In-Progress ≈ `worktree.max_lanes`.
      → Developer short-term execution.
-   - **Build Monitor**: Layout = **Board** (or Table), group by `Wave`. → Shows what runs in parallel now
-     (each wave = one milestone-fanout parallel batch), so the current concurrency is visible at a glance.
-   - **Card Audit**: Layout = **Table**, columns `Design-Doc` · `Stage` · `E2E-Evidence` · `Status` per card.
-     → Per-card audit: design doc, in-card loop step, E2E evidence, and coarse column in one row.
+   - ③ **Build Monitor**: New view → Layout = **Table**. Group by = `Wave` (⚠️ Board columns only take
+     single-select/iteration fields — `Wave` is NUMBER, so Table-with-grouping is the reliable form).
+     Visible fields: Title · `Status` · `Stage` · `Design-Doc`. Filter: `-status:Done,Parked` (active work only).
+     → Each Wave group = one parallel batch; what runs concurrently right now is visible at a glance.
+   - ④ **Card Audit**: New view → Layout = **Table**. Visible fields: Title · `Status` · `Stage` · `Design-Doc` ·
+     `E2E-Evidence` · `Priority` · Milestone. Group by = Milestone, Sort = `Status`.
+     → A card's whole life (design → stage → evidence) in one row; the per-card audit the container discipline promises.
 4. **Built-in workflows** (Settings → Workflows): turn on "Item closed → Done" and "Pull request merged → Done".
    *(These are off on API-created boards — verified. With them on, closing moves items to Done automatically.)*
 5. **Insights** (optional): Insights → configure charts (burndown / distribution by Horizon etc.). They come along with the clone (verification/reading not possible).

@@ -23,6 +23,7 @@ same card end to end. One card, one work item, one place to look.
 
 | Layer | What | Where | Who |
 |---|---|---|---|
+| Map (whole board) | north star · milestone map · how-to-read · working agreements | **board README** (`assets/board-readme.template.md` → `roadmap_readme.sh set`; mirrored to `.claude/.ultraloop-context.md`) | pm |
 | Frame | background · acceptance criteria · Goal-link | issue **body** | pm |
 | Plan | `## Implementation plan` (file structure · tasks · interfaces) | issue **body** | loop |
 | Design | single-file `imgyu-techdoc` HTML | `artifacts.oliveeelab.com` → **`Design-Doc` field** URL | design |

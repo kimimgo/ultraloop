@@ -142,6 +142,12 @@ envelope. The seed-card + milestone-container contract is `${CLAUDE_PLUGIN_ROOT}
 Bulk issue creation must go through `bash ${CLAUDE_PLUGIN_ROOT}/scripts/issue_populate.sh` (idempotent lock — prevents duplicate creation by
 concurrent sessions). Board writes go through `bash ${CLAUDE_PLUGIN_ROOT}/scripts/board.sh` (no hand-written raw graphql).
 
+**Write the board README (the whole-board map).** Fill `${CLAUDE_PLUGIN_ROOT}/assets/board-readme.template.md` — north star, milestone map
+with links to the seed cards, how-to-read-this-board, working agreements — in the product's working language (no tool/agent names), then set
+it with the gh-roadmap sub-skill: `roadmap_readme.sh set --file <filled.md>`. This README is what a fresh session mirrors as its context
+(`roadmap_readme.sh cache` → `.claude/.ultraloop-context.md`), so it must stand alone: someone who reads ONLY it should know what is being
+built, why, and where each piece lives. Keep it current when scope changes (re-entering pm = update the README too).
+
 ---
 
 ## 4. Handoff (pass to loop)
