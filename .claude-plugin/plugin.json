@@ -1,7 +1,7 @@
 {
   "name": "ultraloop",
-  "version": "0.12.0",
-  "description": "Autonomous software-engineering loop for Claude Code built from exactly three mechanisms: a GitHub Projects v2 board as the single source of truth (WHAT — pm fills it, loop drains it), dynamic multi-agent workflows designed per work item and codified into reusable scripts (HOW — shipped workflows/ library: milestone-fanout drains one whole milestone per invocation via a reasoning-built, code-validated dependency graph and parallel waves, plus lane-fanout, pm-chain, adversarial-verify; casting policy in code: coding agents sonnet-xhigh, reasoning/verification inherit the main session), and a goal engine that self-paces with /loop and refuses to stop before the Definition of Done with /goal, behind fail-open hard guards (WHEN). Two role-separated skills plus the bundled board authority: ultraloop:pm plans (product-strategy -> outcome-roadmap -> strategy-red-team -> speckit -> prioritization) and writes the board with no Write/Edit tool; ultraloop:loop reads that board and ships it via TDD + pre-merge production E2E, faithfully logging progress back to the board; gh-roadmap owns board structure (one board may span N repos — each repo runs its own single-repo session on its assigned slice).",
+  "version": "0.13.0",
+  "description": "Autonomous software-engineering loop for Claude Code: three orchestrator skills over a GitHub Projects v2 board (the single source of truth). ultraloop:pm plans with an insight-first fan-out (opportunity-solution-tree, assumptions, brainstorming, product-strategy, strategy-red-team + pre-mortem, outcome-roadmap, prioritization, speckit) and writes a THIN board — north star + seed cards only, no code. ultraloop:design turns one card into a single self-contained HTML design doc (bundled imgyu-techdoc, published to an artifact host) plus an on-card implementation plan (card-planning). ultraloop:loop is the autonomous engine that drains the board — per card it invokes design, then TDD-builds through parallel waves (milestone-fanout / lane-fanout) and pre-merge production E2E, self-pacing with /loop behind a forced /goal Stop-hook. Skill invocation is explicit and verified — the 1% rule: call mapped sub-skills by name, fire if even 1% relevant, verify it ran, fail loud, never silent-degrade — so the plugin stays lean while orchestration actually fires. gh-roadmap owns board structure as a shared sub-skill; every card is a container (plan · design-doc link · progress · dual-recorded E2E evidence).",
   "author": {
     "name": "kimimgo"
   },
@@ -24,7 +24,14 @@
   ],
   "skills": [
     "./skills/pm",
+    "./skills/design",
     "./skills/loop",
-    "./skills/gh-roadmap"
+    "./skills/gh-roadmap",
+    "./skills/imgyu-techdoc",
+    "./skills/opportunity-solution-tree",
+    "./skills/identify-assumptions",
+    "./skills/prioritize-assumptions",
+    "./skills/pre-mortem",
+    "./skills/brainstorming"
   ]
 }

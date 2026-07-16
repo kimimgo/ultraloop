@@ -190,7 +190,7 @@ fi
 
 # ── 6. goal Stop hook install (.claude/settings.json, absolute-path substitution) ─────
 echo "[goal stop-hook]"
-if [ "$(cfg_get engine.goal.install_stop_hook true)" = "true" ]; then
+# v0.13: the /goal Stop-hook is FORCED (non-bypassable) — installed unconditionally; install_stop_hook is not honored as an off switch.
   mkdir -p .claude
   SNIP="$(sed "s#__ULTRALOOP_SKILL_DIR__#$SKILL_DIR#g" "$SKILL_DIR/assets/hooks/settings.snippet.json")"
   if [ -f .claude/settings.json ] && command -v python3 >/dev/null 2>&1; then
@@ -209,9 +209,6 @@ PY
     printf '%s\n' "$SNIP" > .claude/settings.json && echo "  ✓ Stop hook installed (.claude/settings.json)"
   fi
   echo "  · guards always ON: max_iterations/lock/budget/dead-man (engine-loop-and-goal §3)"
-else
-  echo "  · goal.install_stop_hook=false — gate not installed (prompt loop only)"
-fi
 
 # ── 6.5 ★ worktree optimization (.claude/settings.json worktree.baseRef) ─────
 # Parallel lanes run isolated via isolation:"worktree". Pinning where a lane branches from

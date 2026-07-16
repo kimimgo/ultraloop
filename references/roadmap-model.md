@@ -4,6 +4,7 @@
 The **only mutable source of state** for the roadmap is the Project v2 board. Fields (`assets/project-fields.json`):
 - `Status`: Backlog / Ready / In-Progress / In-Review / E2E / Done / Blocked / **Parked**
 - `Roadmap-Item(Epic)` · `Priority`(P0~P2) · `Size`(XS~XL) · `Depends-on` · **`E2E-Evidence`**(evidence path/URL)
+- **`Design-Doc`**(per-card design-doc URL — the card's `imgyu-techdoc` HTML on `artifacts.oliveeelab.com`, `card-container.md`)
 
 Hierarchy: **Roadmap-Item(Milestone/`epic:*`) ⊃ Issue(unit of work = card)**.
 

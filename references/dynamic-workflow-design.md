@@ -18,6 +18,12 @@ verification pass) it *designs* the workflow — and when a design proves itself
 script** so the next run calls code instead of re-improvising (§3). Design is a main-session job: the orchestrator
 (the strongest reasoning model in the room) designs and judges; subagents execute.
 
+> **Build to the tool contract.** This document is the *method* (when and why to fan out). The Workflow tool's
+> exact API — `agent()` / `parallel()` / `pipeline()` / `phase()` / `log()` / `workflow()`, the `meta` block,
+> the `args`/`budget` globals, concurrency and agent caps, the pipeline-vs-barrier semantics, the JS-not-TS
+> constraints, `schema`, and resume — is the *contract*, specified in `workflow-tool-spec.md`. Read it before
+> authoring or editing any `.workflow.js`.
+
 ---
 
 ## 0. The design loop — five questions, in order
@@ -67,7 +73,7 @@ deploy marker. Choosing any other fan-out unit would create a second scope axis 
 dependency graph — hard edges (A merged before B starts) and conflict edges (same modules, never the same
 wave) — grounded in the actual repo layout. Deterministic code **validates** it (unknown ids, cycles → one
 repair round → serial fallback) and schedules waves: runnable = all hard-deps merged; batch = conflict-free,
-≤ `max_lanes`; each wave runs lanes → verify → **one serial integrator** (merge order enforced by structure,
+≤ `max_lanes`; each wave runs lanes (each lane: design → plan → build) → verify → **one serial integrator** (merge order enforced by structure,
 not prompt), then the next wave branches from the freshly merged base. A failed card blocks its dependents —
 they return as leftovers for the approval queue, never blind-retried. Model judgment where judgment is needed,
 code where correctness is checkable.

@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# config_check.sh — v0.13 "config doctor" for an ultraloop project.
+#   Loud, never silent-proceed (mirrors bootstrap_repo.sh §0 probe): prints ✓/✗/· per check.
+#   exit 0 = every REQUIRED item ok; exit 1 with a one-line reason when a REQUIRED item is
+#   missing; optional items warn only (·). Safe to call advisory from SessionStart.
+#   REQUIRED: config present · roadmap project-scope token env · repo resolved · gh auth ·
+#             bootstrap marker · gh-roadmap sub-skill.
+#   OPTIONAL: self-hosted runner (best-effort) · superpowers · vendored pm skills.
+set -uo pipefail
+SDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SKILL_DIR="$(cd "$SDIR/.." && pwd)"
+. "$SDIR/_lib.sh" 2>/dev/null || true
+
+FAIL=""                                    # first REQUIRED failure reason (the one-line verdict)
+req_fail() { [ -n "$FAIL" ] || FAIL="$1"; }
+
+echo "== ultraloop config doctor =="
+
+# ── 1. config present (gateway — nothing else is meaningful without it) ───────────
+CFG="$(ue_config_path)"
+if [ ! -f "$CFG" ]; then
+  echo "  ✗ config: ultraloop.config.yaml not found ($CFG) — run bootstrap_repo.sh or cp config.example.yaml"
+  echo "config-doctor: FAIL — ultraloop.config.yaml missing"
+  exit 1
+fi
+echo "  ✓ config: $CFG"
+PROJ="$(cd "$(dirname "$CFG")" && pwd)"
+
+# ── 2. roadmap project-scope token env (REQUIRED — Projects v2 automation needs a project-scope PAT) ──
+TOKEN_ENV="$(cfg_get roadmap.token_env UE_PROJECT_TOKEN)"
+if [ -n "${!TOKEN_ENV:-${GH_TOKEN:-}}" ]; then
+  echo "  ✓ project-scope token ($TOKEN_ENV)"
+else
+  echo "  ✗ project-scope token: env $TOKEN_ENV (and GH_TOKEN) unset — Projects v2 board automation cannot run"
+  req_fail "project-scope token env $TOKEN_ENV unset"
+fi
+
+# ── 3. repo resolved (REQUIRED) ──────────────────────────────────────────────────
+REPO="$(ue_repo)"
+if [ -n "$REPO" ]; then
+  echo "  ✓ repo: $REPO"
+else
+  echo "  ✗ repo: unresolved — set config.repo or pass owner/name (/ultraloop owner/name)"
+  req_fail "repo unresolved (set config.repo)"
+fi
+
+# ── 4. gh auth (REQUIRED) ────────────────────────────────────────────────────────
+if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+  echo "  ✓ gh auth"
+else
+  echo "  ✗ gh auth: not logged in — run gh auth login"
+  req_fail "gh not authenticated (gh auth login)"
+fi
+
+# ── 5. bootstrap marker (REQUIRED — proves bootstrap_repo.sh completed its prerequisites) ──
+if [ -f "$PROJ/.claude/.ultraloop-bootstrapped" ]; then
+  echo "  ✓ bootstrap marker (.claude/.ultraloop-bootstrapped)"
+else
+  echo "  ✗ bootstrap marker (.claude/.ultraloop-bootstrapped) absent — run bootstrap_repo.sh"
+  req_fail "bootstrap marker absent (run bootstrap_repo.sh)"
+fi
+
+# ── 6. gh-roadmap sub-skill (REQUIRED — sole board authority; bundled since v0.8.0) ──
+#   Priority: local user copy → bundled skills/ → plugin bundle/cache (matches bootstrap §0.1).
+GHR_DIR=""
+for d in "$HOME/.claude/skills/gh-roadmap" "$SKILL_DIR/skills/gh-roadmap" \
+         "$HOME"/.claude/plugins/*/skills/gh-roadmap "$HOME"/.claude/plugins/cache/*/*/skills/gh-roadmap; do
+  [ -f "$d/SKILL.md" ] && { GHR_DIR="$d"; break; }
+done
+if [ -n "$GHR_DIR" ]; then
+  echo "  ✓ gh-roadmap sub-skill: $GHR_DIR"
+else
+  echo "  ✗ gh-roadmap sub-skill missing (bundle damaged?) — board structure/setup unavailable"
+  req_fail "gh-roadmap sub-skill missing"
+fi
+
+# ── optional (warnings only — never block exit) ──────────────────────────────────
+# self-hosted runner — best-effort; a permission/offline failure must not hard-fail (agent re-verifies in loop ①).
+RUN="$(gh api "repos/$REPO/actions/runners" --jq '[.runners[]|select(.status=="online")]|length' 2>/dev/null || echo "?")"
+case "$RUN" in
+  "?") echo "  · self-hosted runner: query failed (permission/offline) — re-verify before waiting on CI" ;;
+  0)   echo "  · self-hosted runner: none online — CI (runs-on: self-hosted) will queue until one registers" ;;
+  *)   echo "  ✓ self-hosted runner online: $RUN" ;;
+esac
+
+# superpowers (optional — one availability summary line).
+if [ -d "$HOME/.claude/skills/superpowers" ] || compgen -G "$HOME/.claude/plugins/*/skills/superpowers" >/dev/null 2>&1; then
+  echo "  ✓ superpowers: available"
+else
+  echo "  · superpowers: not installed — optional (pm chain falls back to bundled skills)"
+fi
+
+# vendored pm skills (optional — one availability summary line).
+PM_HAVE=0; PM_TOTAL=0
+for s in brainstorming identify-assumptions opportunity-solution-tree pre-mortem prioritize-assumptions; do
+  PM_TOTAL=$((PM_TOTAL + 1))
+  { [ -f "$SKILL_DIR/skills/$s/SKILL.md" ] || [ -d "$HOME/.claude/skills/$s" ]; } && PM_HAVE=$((PM_HAVE + 1))
+done
+echo "  · vendored pm skills: $PM_HAVE/$PM_TOTAL bundled (optional — loop falls back if any absent)"
+
+# ── verdict (one-line summary; the SessionStart advisory greps the last line) ─────
+if [ -n "$FAIL" ]; then
+  echo "config-doctor: FAIL — $FAIL"
+  exit 1
+fi
+echo "config-doctor: OK — all required checks passed (runner=$RUN)"

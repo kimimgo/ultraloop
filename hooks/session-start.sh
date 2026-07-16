@@ -23,3 +23,9 @@ if [ -s "$CTX" ]; then
   printf '\n📌 project context (board README mirror) —\n'
   sed -e '/^<!--/,/-->/d' -e '/^[[:space:]]*$/d' "$CTX" 2>/dev/null | head -40
 fi
+
+# Advisory config doctor — surface the one-line health verdict. Never hard-fail the
+# SessionStart hook: config_check.sh exits non-zero on a missing REQUIRED item, so its
+# exit code is deliberately ignored here (advisory only).
+DOCTOR="$(bash "$SDIR/../scripts/config_check.sh" 2>/dev/null | tail -1 || true)"
+[ -n "$DOCTOR" ] && printf '\n🩺 %s\n' "$DOCTOR"

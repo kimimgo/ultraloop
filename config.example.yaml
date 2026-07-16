@@ -66,7 +66,7 @@ engine:
   #   Unmet → block the stop + accumulate iteration/last_reason + continue. Met → clear (allow the stop).
   goal:
     enabled: true
-    install_stop_hook: true       # install the Stop hook into the target repo .claude/settings.json (= /goal as-is)
+    install_stop_hook: true       # v0.13: FORCED — the /goal DoD Stop-hook is non-bypassable (loop treats it as a red line); leave true
     condition: "DoD"              # "DoD" = every item of definition-of-done.md. Or a free-form condition string.
     scope: "board"                # run scope: "board" = full-board completion (default) |
                                   #   "milestone:<title>" = this run ends when THAT milestone is drained
@@ -135,7 +135,7 @@ e2e:
 
 # ── Parallel lanes (worktree) ────────────────────────────────────────────────
 worktree:
-  max_lanes: 2                    # concurrent lane count (fan out only module-non-conflicting issues)
+  max_lanes: 4                    # concurrent lane count per wave (v0.13: default 2 -> 4; fan out only module-non-conflicting issues)
   root: "../.ue-worktrees"        # lane worktree root
   base_ref: "fresh"               # branch base for isolated lanes — fresh=origin/<default> (recommended: reproducible, no unpushed work leaks in) | head=local HEAD (build on unpushed commits)
                                   #   bootstrap_repo.sh records this value as worktree.baseRef in the target repo .claude/settings.json

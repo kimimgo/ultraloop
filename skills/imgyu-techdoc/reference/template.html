@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<!--
+  기술 문서 — 스켈레톤 템플릿 (참조 디자인 시스템 · 도메인/브랜드 무관)
+  사용법: 이 파일을 복사 → <style>와 맨 아래 mermaid.initialize의 *구조*는 그대로 둠 →
+          {{PLACEHOLDER}} 와 예시 라벨을 프로젝트 내용으로 교체.
+  ◦ 색 팔레트(:root)는 중립 기본값일 뿐 — 프로젝트 브랜드에 맞게 --brand 등만 바꿔도 됨.
+  ◦ 메타 칩·다이어그램 라벨·리소스 네이밍은 전부 *교체 가능한 예시* — 대상 스택 용어로 교체.
+  ◦ 영문 문서면 lang="en"·폰트 스택 첫 항목을 Segoe UI 계열로 교체.
+  ◦ 섹션은 고정 목차가 아니라 시작용 메뉴 — 필요한 패턴만 남기고 가감 (SKILL.md §3).
+  ⚠ Mermaid 라벨의 줄바꿈은 반드시 &lt;br/&gt; (< > 이스케이프). 자세한 건 reference/diagrams.md.
+  ⚠ 외부 의존은 아래 Mermaid CDN 한 줄뿐. 오프라인/사내망이면 mermaid.min.js를 로컬 동봉하고 src만 교체.
+  ⚠ integrity(SRI) 해시는 mermaid 11.12.0 전용 — 버전을 바꾸면 cdnjs에서 새 해시를 받아 교체해야
+     스크립트가 로드된다(안 그러면 무결성 불일치로 조용히 차단됨). 로컬 동봉 시엔 integrity/crossorigin 제거.
+-->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{문서 제목}}</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.12.0/mermaid.min.js"
+        integrity="sha512-5TKaYvhenABhlGIKSxAWLFJBZCSQw7HTV7aL1dJcBokM/+3PNtfgJFlv8E6Us/B1VMlQ4u8sPzjudL9TEQ06ww=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<style>
+  /* ===== 디자인 토큰 — 변형 금지 (하우스 스타일) ===== */
+  :root{
+    --bg:#f5f7fa; --card:#ffffff; --ink:#1a2233; --muted:#5b6678;
+    --brand:#1e40af; --brand2:#2563eb; --line:#e3e8ef;
+    --soft:#eef2f7; --p1:#0f9d58; --p2:#f4b400; --p3:#9aa0a6;
+    --accent:#eaf0ff;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:"Malgun Gothic","Apple SD Gothic Neo",-apple-system,Segoe UI,Roboto,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.65;font-size:15px}
+  .layout{display:grid;grid-template-columns:280px 1fr;max-width:1400px;margin:0 auto;gap:0}
+  /* Sidebar */
+  nav.toc{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;
+    background:#0d1530;color:#cfd6e6;padding:26px 18px}
+  nav.toc h2{color:#fff;font-size:16px;margin:0 0 4px;letter-spacing:.3px}
+  nav.toc .sub{color:#8a93ad;font-size:12px;margin-bottom:18px}
+  nav.toc a{display:block;color:#aeb8d0;text-decoration:none;font-size:13px;
+    padding:6px 10px;border-radius:7px;margin:2px 0;transition:.15s}
+  nav.toc a:hover{background:#1b2549;color:#fff}
+  nav.toc a .n{display:inline-block;width:22px;color:#5e6b92;font-variant-numeric:tabular-nums}
+  /* Main */
+  main{padding:40px 48px 80px;max-width:1040px}
+  header.doc{background:linear-gradient(135deg,var(--brand),#2b3fd0);color:#fff;
+    border-radius:16px;padding:34px 38px;margin-bottom:30px;box-shadow:0 10px 30px rgba(20,40,160,.18)}
+  header.doc h1{margin:0 0 6px;font-size:30px;letter-spacing:-.5px}
+  header.doc p{margin:0;opacity:.92;font-size:14px}
+  .meta-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+  .chip{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);
+    padding:5px 12px;border-radius:999px;font-size:12.5px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:26px 30px;margin-bottom:22px;box-shadow:0 1px 3px rgba(20,30,60,.04)}
+  h2.sec{font-size:21px;margin:0 0 16px;padding-bottom:12px;border-bottom:2px solid var(--accent);
+    color:var(--brand);display:flex;align-items:baseline;gap:10px}
+  h2.sec .num{background:var(--brand);color:#fff;font-size:14px;border-radius:8px;
+    padding:2px 10px;font-weight:700}
+  h3{font-size:16px;color:var(--ink);margin:22px 0 10px;border-left:4px solid var(--brand2);padding-left:10px}
+  p{margin:10px 0}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:9px 12px;text-align:left;vertical-align:top}
+  th{background:var(--soft);color:#33415c;font-weight:700}
+  tbody tr:nth-child(even){background:#fafbfd}
+  code{background:#eef1f6;padding:2px 6px;border-radius:5px;font-size:12.5px;
+    font-family:"Consolas",monospace;color:#b3306b}
+  blockquote{margin:14px 0;padding:12px 16px;background:var(--accent);
+    border-left:4px solid var(--brand2);border-radius:0 8px 8px 0;color:#33415c;font-size:13.5px}
+  .mermaid{background:#fbfcfe;border:1px solid var(--line);border-radius:12px;
+    padding:18px;margin:16px 0;text-align:center;overflow-x:auto}
+  .badge{display:inline-block;padding:2px 9px;border-radius:6px;color:#fff;font-size:12px;font-weight:700}
+  .b1{background:var(--p1)} .b2{background:var(--p2);color:#3a2e00} .b3{background:var(--p3)}
+  .pill{display:inline-block;background:#eef1f6;border-radius:6px;padding:1px 7px;font-size:12px;color:#445}
+  /* 변경 하이라이트 — 개정 추적용 */
+  .chg{background:#fff3cd;border-bottom:2px solid #f4b400;padding:0 2px;border-radius:3px}
+  .chg-tag{display:inline-block;background:#f4b400;color:#3a2e00;font-size:10.5px;font-weight:700;
+    border-radius:5px;padding:1px 7px;margin-left:6px;vertical-align:middle;letter-spacing:.2px}
+  .changelog{background:#fffaf0;border:1px solid #f4d27a;border-left:4px solid #f4b400;
+    border-radius:0 8px 8px 0;padding:11px 16px;margin:0 0 18px;font-size:13px}
+  .changelog h4{margin:0 0 6px;color:#7a5b00;font-size:13px}
+  .changelog ul{margin:0;padding-left:18px}
+  .changelog li{margin:3px 0}
+  .changelog .date{color:#8a6d00;font-weight:700}
+  footer{color:var(--muted);font-size:12.5px;text-align:center;padding:30px 0 10px}
+  @media print{nav.toc{display:none}.layout{grid-template-columns:1fr}main{padding:0}
+    section{break-inside:avoid;box-shadow:none}}
+  @media(max-width:900px){.layout{grid-template-columns:1fr}nav.toc{position:static;height:auto}main{padding:24px}}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- ===== 사이드바 TOC : 링크는 아래 section id 와 1:1 ===== -->
+<nav class="toc">
+  <h2>{{문서 제목}}</h2>
+  <div class="sub">{{YYYY-MM-DD}} · {{버전/단계}}</div>
+  <a href="#s0"><span class="n">0</span> 문서 개요</a>
+  <a href="#s1"><span class="n">1</span> 시스템 개념도</a>
+  <a href="#s2"><span class="n">2</span> 전체 아키텍처</a>
+  <a href="#s3"><span class="n">3</span> 인프라 상세 설계</a>
+  <a href="#s4"><span class="n">4</span> 개발 방식 &amp; CI/CD</a>
+  <a href="#s9"><span class="n">9</span> 상태 정의</a>
+  <a href="#s12"><span class="n">12</span> 우선순위·일정</a>
+  <!-- … 나머지 섹션 링크 추가 (SKILL.md §3 블루프린트 참조) … -->
+  <!-- 개정 문서면 맨 끝에: <a href="#chglog"><span class="n">부록</span> 변경 이력</a> (본문 변경 서술은 전부 이 별첨으로) -->
+</nav>
+
+<main>
+
+<!-- ===== 헤더 카드 ===== -->
+<header class="doc">
+  <h1>{{문서 제목}}</h1>
+  <p>{{한 줄 정의 — 무엇을 위한 개발·인프라·배포·운영 계획인가}}</p>
+  <div class="meta-row">
+    <span class="chip">개발환경 · {{IDE / 클라우드}}</span>
+    <span class="chip">코드관리 · {{VCS / CI}}</span>
+    <span class="chip">배포 · {{배포 방식 (CI/CD)}}</span>
+    <span class="chip">App DB · {{DB 구성}}</span>
+    <span class="chip">데이터 · {{데이터 플랫폼}}</span>
+    <span class="chip">{{운영/개발 분리}}</span>
+  </div>
+</header>
+
+<!-- ===== 0. 메타 표 ===== -->
+<section id="s0">
+  <h2 class="sec"><span class="num">0</span> 문서 개요</h2>
+  <p>본 문서는 <b>{{무엇}}</b>을 다루며, {{상세}}는 별도 <b>{{단일 기준 문서}}</b>를 단일 기준으로 한다.</p>
+  <table>
+    <tr><th>항목</th><th>내용</th></tr>
+    <tr><td>프로젝트명</td><td>{{…}}</td></tr>
+    <tr><td>일정</td><td>개발 착수 {{YYYY-MM-DD}} · 통합 검증 ~{{YYYY-MM-DD}}</td></tr>
+  </table>
+  <p>비중 있게 다루는 {{N}}개 영역: ① {{…}} ② {{…}} ③ {{…}} ④ {{…}}.</p>
+</section>
+
+<!-- ===== 1. 시스템 개념도 : flowchart TB 스윔레인 (실선=주흐름, 점선=조건부) ===== -->
+<section id="s1">
+  <h2 class="sec"><span class="num">1</span> 시스템 개념도</h2>
+  <pre class="mermaid">
+flowchart TB
+    accTitle: {{시스템 개념도}}
+    accDescr: {{사용자가 어떻게 진입해 무엇이 주 흐름이고 무엇이 조건부인지 한 문장으로 — 스크린리더용}}
+    subgraph R1["사용자 접점"]
+        direction LR
+        USR(["사용자"]) --> SSO["인증&lt;br/&gt;(SSO)"] --> ENTRY["포털&lt;br/&gt;(랜딩 홈)"]
+    end
+    subgraph R2["사용자 서비스 (Day 1)"]
+        direction LR
+        A["기능 A"]
+        B["기능 B"]
+    end
+    APRV["결재 페이지"]
+    PROV["수동 처리&lt;br/&gt;(Day 1 기본)"]
+    SCIM["자동 처리&lt;br/&gt;(조건부)"]
+    TGT["대상 시스템"]
+    ENTRY --> R2
+    A --> APRV --> PROV --> TGT
+    PROV -. 설정 전환 .-> SCIM -.-> TGT
+    classDef actor fill:#eef2f7,stroke:#5b6678,color:#1a2233;
+    classDef external fill:#f7f2ff,stroke:#7c5cbf,color:#241a33;
+    classDef store fill:#eef7f0,stroke:#0f9d58,color:#123;
+    class USR actor;
+    class SSO external;
+  </pre>
+  <blockquote>{{개념도 한 문단 요약 — 누가 어떻게 진입하고, 무엇이 주 흐름이며, 어떤 게 조건부인가.}}</blockquote>
+</section>
+
+<!-- ===== 2. 전체 아키텍처 : flowchart LR 중첩 subgraph + classDef chg ===== -->
+<section id="s2">
+  <h2 class="sec"><span class="num">2</span> 전체 아키텍처</h2>
+  <h3>2-1. 논리 아키텍처</h3>
+  <pre class="mermaid">
+flowchart LR
+    accTitle: {{전체 아키텍처}}
+    accDescr: {{클라이언트가 어느 경로로 앱·DB·시크릿에 닿고 외부와 어떻게 연계되는지 한 문장 — 스크린리더용}}
+    subgraph CLIENT["클라이언트"]
+        BR["브라우저"]
+    end
+    subgraph CLOUD["클라우드 (운영/개발 분리)"]
+        subgraph APP["앱 서비스 (PaaS)"]
+            WEB["웹/API"]
+        end
+        subgraph DB["DB 이중화 (3노드)"]
+            LBQ["LB + witness&lt;br/&gt;단일 엔드포인트"]
+            PGP["Primary"]
+            PGS["Standby"]
+            LBQ --> PGP
+            PGP --> PGS
+        end
+        KV["시크릿 스토어"]
+    end
+    BR --> WEB
+    WEB --> LBQ
+    WEB --> KV
+    classDef chg fill:#fff3cd,stroke:#f4b400,stroke-width:2px,color:#3a2e00;
+    classDef actor fill:#eef2f7,stroke:#5b6678,color:#1a2233;
+    classDef store fill:#eef7f0,stroke:#0f9d58,color:#123;
+    class LBQ chg;
+    class BR actor;
+    class KV store;
+    WEB -. 페더레이션 .-> KV
+  </pre>
+
+  <h3>2-2. 구성 요소 역할</h3>
+  <table>
+    <tr><th>계층</th><th>구성</th><th>역할</th></tr>
+    <tr><td>{{…}}</td><td>{{…}}</td><td>{{…}}</td></tr>
+  </table>
+
+  <h3>2-3. 운영/개발 환경 분리</h3>
+  <table>
+    <tr><th>리소스</th><th>개발(Dev)</th><th>운영(Prod)</th></tr>
+    <tr><td>리소스 그룹/네임스페이스</td><td><code>{{app}}-dev</code></td><td><code>{{app}}-prod</code></td></tr>
+  </table>
+</section>
+
+<!-- ===== 3. 인프라 상세 : Dev|Prod 표 + 설계 의도 blockquote + 네트워크 TB =====
+     ⚠ 변경 이력은 여기(본문) 넣지 말 것 — 문서 말미 "변경 이력" 별첨 섹션으로 격리(SKILL §0-8·§1-8).
+     본문은 현재 상태만 단정형으로. .chg-tag / .changelog / .chg 하이라이트 모두 본문 금지. -->
+<section id="s3">
+  <h2 class="sec"><span class="num">3</span> 인프라 상세 설계</h2>
+
+  <h3>3-2. 핵심 컴포넌트</h3>
+  <table>
+    <tr><th>항목</th><th>개발(Dev)</th><th>운영(Prod)</th></tr>
+    <tr><td>{{…}}</td><td>{{현재 값}}</td><td>{{…}}</td></tr>
+  </table>
+  <p>{{단정형 설명 단락 — 지금 시스템이 어떤지만. "언제 바뀌었다" 서술·배지 없이.}}</p>
+
+  <!-- 시그니처: 설계 의도 평어 내러티브 (style-and-tone.md 참조) -->
+  <blockquote>
+    <b>용어 &amp; 설계 의도</b><br>
+    {{왜 이 선택을 했는지 일상어로. 규모·사용 패턴 같은 정량 근거 → 무엇을 우선했는지 → 부품 하나하나를
+    쉬운 비유로 설명 → 큰 환경용 도구를 "이 규모엔 과설계라 의도적으로 뺐다"고 명시.}}
+  </blockquote>
+
+  <h3>3-4. 네트워크 구성</h3>
+  <pre class="mermaid">
+flowchart TB
+    subgraph VNET["가상 네트워크 (Dev/Prod 분리)"]
+        subgraph SUB_APP["App 서브넷"]
+            APPS["앱 서비스&lt;br/&gt;(가상 네트워크 통합)"]
+        end
+        subgraph SUB_DB["DB 서브넷 (격리)"]
+            LB["LB + witness"]
+            PG1["Primary"]
+            PG2["Standby"]
+        end
+    end
+    INET["인터넷"] --> APPS
+    APPS --> LB
+    LB --> PG1
+    LB -. 헬스체크 .-> PG2
+    PG1 -->|비동기 복제| PG2
+    classDef chg fill:#fff3cd,stroke:#f4b400,stroke-width:2px,color:#3a2e00;
+    class LB chg;
+  </pre>
+</section>
+
+<!-- ===== 4. CI/CD : flowchart LR + 승인 게이트 다이아몬드 + 라벨 엣지 ===== -->
+<section id="s4">
+  <h2 class="sec"><span class="num">4</span> 개발 방식 &amp; CI/CD</h2>
+  <h3>4-1. 모듈 분리 원칙</h3>
+  <ul>
+    <li><b>{{모듈 A}} 분리</b> — {{교체 가능 이유}}</li>
+  </ul>
+  <h3>4-3. 배포 자동화 (CI/CD)</h3>
+  <pre class="mermaid">
+flowchart LR
+    DEV["개발자"] --> REPO["Repos"]
+    REPO --> CI["CI: 빌드·테스트"]
+    CI -->|develop| CDD["CD: Dev 배포"]
+    CI -->|main| APPRV{"승인 게이트"}
+    APPRV -->|승인| CDS["CD: staging 슬롯"]
+    CDS -->|slot swap| PROD["운영 무중단 배포"]
+  </pre>
+</section>
+
+<!-- ===== 9. 상태 정의 : stateDiagram-v2 ===== -->
+<section id="s9">
+  <h2 class="sec"><span class="num">9</span> 상태 정의 (명칭 고정)</h2>
+  <pre class="mermaid">
+stateDiagram-v2
+    [*] --> 신청
+    신청 --> 결재중: 결재 흐름 시작
+    결재중 --> 결재중: 다음 단계로 진행
+    결재중 --> 처리완료: 모든 결재 완료
+    결재중 --> 반려
+    반려 --> 신청: 재신청
+    처리완료 --> [*]
+    note right of 처리완료
+        상태 = "처리완료"
+    end note
+  </pre>
+  <table>
+    <tr><th>상태</th><th>의미</th></tr>
+    <tr><td>{{…}}</td><td>{{…}}</td></tr>
+  </table>
+</section>
+
+<!-- ===== 12. 우선순위 & 일정 : .badge 표 + gantt ===== -->
+<section id="s12">
+  <h2 class="sec"><span class="num">12</span> 개발 우선순위 &amp; 일정</h2>
+  <table>
+    <tr><th>순위</th><th>대상</th><th>목표 시점</th></tr>
+    <tr><td><span class="badge b1">P1 Must</span></td><td>{{…}}</td><td>{{…}}</td></tr>
+    <tr><td><span class="badge b2">P2 Should</span></td><td>{{…}}</td><td>{{…}}</td></tr>
+    <tr><td><span class="badge b3">P3 조건부</span></td><td>{{…}}</td><td>{{…}}</td></tr>
+  </table>
+  <pre class="mermaid">
+gantt
+    dateFormat YYYY-MM-DD
+    axisFormat %m/%d
+    title {{프로젝트}} Day 1 일정
+    section 준비/인프라
+    리소스·환경 분리 구성        :a1, 2026-01-06, 2d
+    section 개발
+    개발 착수                   :milestone, 2026-01-08, 0d
+    P1 핵심 플로우              :b1, 2026-01-08, 6d
+    section 검증/오픈
+    통합 검증                   :milestone, 2026-01-15, 0d
+  </pre>
+  <p>{{순연 정책 — 무엇은 순연 가능, 무엇은 불가.}}</p>
+</section>
+
+<!-- ===== 16. 용어 ===== -->
+<section id="s16">
+  <h2 class="sec"><span class="num">16</span> 용어</h2>
+  <table>
+    <tr><th>용어</th><th>정의</th></tr>
+    <tr><td>{{…}}</td><td>{{…}}</td></tr>
+  </table>
+</section>
+
+<!-- ===== 부록. 변경 이력 (개정 문서일 때만) =====
+     ⭐ 모든 변경 서술을 여기 한 곳에 모은다. 본문 섹션엔 .chg-tag/.changelog 넣지 않는다(SKILL §0-8·§1-8).
+     신규 문서면 이 섹션 통째로 삭제. -->
+<section id="chglog">
+  <h2 class="sec"><span class="num">부록</span> 변경 이력</h2>
+  <div class="changelog">
+    <h4>변경 이력</h4>
+    <ul>
+      <li><span class="date">{{YYYY-MM-DD}}</span> {{무엇이 바뀌었나}} — {{근거·결정 요약}}. 상세: <code>{{참조 문서}}</code>.</li>
+      <li><span class="date">{{YYYY-MM-DD}}</span> {{…}}</li>
+    </ul>
+  </div>
+</section>
+
+<footer>{{본 계획서 출처·단일 기준 한 줄}}</footer>
+</main>
+</div>
+
+<!-- ===== Mermaid init — 구조 변형 금지, themeVariables 값만 :root 팔레트에 맞춰 교체 =====
+     theme:'base' + themeVariables = 다이어그램을 문서 팔레트와 일체화(핵심 미감).
+     themeVariables 색은 위 :root 토큰과 1:1 매핑 — 브랜드 바꾸면 여기 값도 같이 바꾼다. -->
+<script>
+  mermaid.initialize({
+    startOnLoad:true, securityLevel:'loose', theme:'base',
+    htmlLabels:true, flowchart:{ htmlLabels:true, curve:'basis' },
+    themeVariables:{
+      fontFamily:'"Malgun Gothic","Apple SD Gothic Neo",-apple-system,Segoe UI,Roboto,sans-serif',
+      primaryColor:'#eaf0ff',        /* 노드 채움  = --accent */
+      primaryBorderColor:'#1e40af',  /* 노드 테두리 = --brand  */
+      primaryTextColor:'#1a2233',    /* 노드 글자  = --ink    */
+      lineColor:'#5b6678',           /* 엣지       = --muted  */
+      secondaryColor:'#eef2f7',      /* 보조       = --soft   */
+      tertiaryColor:'#fbfcfe', tertiaryBorderColor:'#e3e8ef',
+      clusterBkg:'#fbfcfe', clusterBorder:'#cfd8e6', fontSize:'14px'
+    },
+    themeCSS:'.cluster rect{rx:10;ry:10} .node rect,.node polygon{rx:8;ry:8} .edgeLabel{background:#ffffff;color:#33415c}'
+  });
+</script>
+
+<!-- ===== (선택) ELK 레이아웃 — 밀집/중첩 subgraph 많은 아키텍처도에서 직교 배선·교차 최소화 =====
+     ⚠ 트레이드오프: 외부 의존 2개(mermaid + layout-elk)·ESM 로딩이라 SRI 무결성 불가·오프라인 취약.
+       문서가 단순하면 켜지 마라. 켜려면 (1) 위 <script src> UMD 로더와 바로 위 init <script>를 지우고
+       (2) 아래 블록 주석을 해제한다. themeVariables/themeCSS 값은 위 것을 그대로 복사. 자세한 건 diagrams.md §ELK.
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  import elkLayouts from 'https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0/dist/mermaid-layout-elk.esm.min.mjs';
+  mermaid.registerLayoutLoaders(elkLayouts);
+  mermaid.initialize({
+    startOnLoad:false, securityLevel:'loose', theme:'base', layout:'elk',
+    htmlLabels:true, flowchart:{ htmlLabels:true, curve:'basis' },
+    themeVariables:{ /* …위 init과 동일하게 복사… */ },
+    themeCSS:'.cluster rect{rx:10;ry:10} .node rect,.node polygon{rx:8;ry:8} .edgeLabel{background:#ffffff;color:#33415c}'
+  });
+  await mermaid.run();
+</script>
+-->
+
+</body>
+</html>

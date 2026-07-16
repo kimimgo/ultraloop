@@ -4,9 +4,13 @@
 #   the agent hand-wrote raw graphql every time — this file is the deterministic core of loop ⑧ (board update).
 # usage:
 #   board.sh add <issue-url> [--status <option-name>] [--stage <option-name>]   # idempotent add (+ fields one-shot)
-#   board.sh set <issue-url> <field-name> <value>     # SINGLE_SELECT (option name→id auto) or TEXT field, auto-detected
+#   board.sh set <issue-url> <field-name> <value>     # SINGLE_SELECT (option name→id auto), TEXT, or NUMBER field, auto-detected
 #   board.sh status <issue-url> <option-name>       # shorthand for set <url> Status <option-name>
 #   board.sh evidence <issue-url> <text>     # shorthand for set <url> E2E-Evidence <text>
+#   board.sh design <issue-url> <doc-url>    # shorthand for set <url> Design-Doc <doc-url>
+#   board.sh stage <issue-url> <option-name>   # shorthand for set <url> Stage <option-name>
+#   board.sh wave <issue-url> <number>       # shorthand for set <url> Wave <number>
+#   board.sh comment <issue-url> <text>      # post an issue comment (card=container progress mirror)
 #   board.sh item <issue-url>                  # print board item-id (empty output + exit 1 if absent)
 # exit 0=ok · 1=item absent (item only) · 3=board not configured · 5=API failure
 set -uo pipefail
@@ -52,6 +56,9 @@ for o in json.load(sys.stdin):
     [ -n "$OID" ] || { ue_log "option absent: $fname=$val (available: $(printf '%s' "$opts" | python3 -c 'import json,sys;print(", ".join(o["name"] for o in json.load(sys.stdin)))'))"; exit 5; }
     gq -f query='mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){ updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$o}}){ projectV2Item{ id } } }' \
        -f p="$PNODE" -f i="$iid" -f f="$fid" -f o="$OID" >/dev/null
+  elif [ "$ftype" = "NUMBER" ]; then
+    gq -f query='mutation($p:ID!,$i:ID!,$f:ID!,$n:Float!){ updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:{number:$n}}){ projectV2Item{ id } } }' \
+       -f p="$PNODE" -f i="$iid" -f f="$fid" -F n="$val" >/dev/null
   else # TEXT etc.
     gq -f query='mutation($p:ID!,$i:ID!,$f:ID!,$t:String!){ updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:{text:$t}}){ projectV2Item{ id } } }' \
        -f p="$PNODE" -f i="$iid" -f f="$fid" -f t="$val" >/dev/null
@@ -85,5 +92,9 @@ add)
 set)      set_field "${1:?url}" "${2:?field}" "${3:?value}" ;;
 status)   set_field "${1:?url}" "Status" "${2:?option-name}" ;;
 evidence) set_field "${1:?url}" "E2E-Evidence" "${2:?text}" ;;
-*) echo "usage: board.sh add|set|status|evidence|item ..."; exit 5 ;;
+design)   set_field "${1:?url}" "Design-Doc" "${2:?doc-url}" ;;
+stage)    set_field "${1:?url}" "Stage" "${2:?option-name}" ;;
+wave)     set_field "${1:?url}" "Wave" "${2:?number}" ;;
+comment)  if gh issue comment "${1:?url}" --body "${2:?text}" >/dev/null; then echo "COMMENT ($1)"; else ue_log "comment failed: $1"; exit 5; fi ;;
+*) echo "usage: board.sh add|set|status|evidence|design|stage|wave|comment|item ..."; exit 5 ;;
 esac

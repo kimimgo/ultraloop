@@ -16,7 +16,7 @@ description: >-
 # ultraloop:loop — the executor (reads the board and executes it faithfully; does not define the roadmap)
 
 > **TL;DR** — read the approved board and ship each Ready card end to end: TDD (Red→Green→Refactor) → pre-merge production E2E → merge, logging progress back to the card.
-> Invoked as `/ultraloop:loop` once a board is populated and approved. **Do the Entry gate below first** (bootstrap check → arm Workflow → call dependency skills), then read the board and pick a Ready card.
+> Invoked as `/ultraloop:loop` once a board is **populated by pm** — whole-board pre-approval is replaced by the **first-slice gate** (§5): ship the first vertical card, ask "direction ok?" once, then run to the milestone boundary. **Do the Entry gate below first** (bootstrap + forced Stop-hook → ultracode posture / arm Workflow → call dependency skills), then read the board and pick a Ready card.
 
 You are the **execution half** of the ultraloop plugin. You read the **board (GitHub Projects v2 = SoT)** that
 `ultraloop:pm` filled, complete every card via **TDD → pre-merge production E2E → merge**, and **faithfully log progress to the board**.
@@ -29,11 +29,14 @@ You pace yourself with `/loop` and gate stops with `/goal`, proceeding unattende
 
 ## Entry gate — do this at the start of every run (the loop assumes it's done)
 
-1. **Bootstrap auto-enforcement.** If the target repo lacks the `.claude/.ultraloop-bootstrapped` marker, run
-   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap_repo.sh` **immediately** (idempotent). Proceed only on success; on failure
-   report clearly and stop (no silent degrade). If the marker exists, pass.
-2. **Arm the dynamic workflow.** If `config.workflow.orchestrate: true` (default), core stages run as **dynamic workflows**
-   (Claude Code Workflow tool) designed per work item — methodology and casting policy in
+1. **Bootstrap auto-enforcement + FORCED goal Stop-hook.** If the target repo lacks the `.claude/.ultraloop-bootstrapped` marker, run
+   `bash ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap_repo.sh` **immediately** (idempotent). Bootstrap arms the /goal Stop-hook
+   (`assets/hooks/goal-stop-gate.sh`) in `.claude/settings.json` — this is **forced and non-bypassable** (§0 red line). Proceed only on
+   success; on failure report clearly and stop (no silent degrade). If the marker exists, confirm the Stop-hook is armed (re-install if missing) and pass.
+2. **Adopt the ultracode posture + arm the dynamic workflow (M8).** At loop start default to **orchestrating substantive work via the
+   Workflow tool** (dynamic workflows) rather than doing it inline by hand — this is the *ultracode posture*, the loop's standing mode
+   (API contract `${CLAUDE_PLUGIN_ROOT}/references/workflow-tool-spec.md`). If `config.workflow.orchestrate: true` (default), core stages run as
+   **dynamic workflows** (Claude Code Workflow tool) designed per work item — methodology and casting policy in
    `${CLAUDE_PLUGIN_ROOT}/references/dynamic-workflow-design.md`. Lane fan-out calls the shipped script
    `${CLAUDE_PLUGIN_ROOT}/workflows/lane-fanout.workflow.js` (coding lanes = sonnet·xhigh; verification inherits the main session).
    ⚠️ This "Workflow" is the Claude Code multi-agent tool — different from GitHub **built-in workflows** (board side).
@@ -50,6 +53,10 @@ You pace yourself with `/loop` and gate stops with `/goal`, proceeding unattende
 - **/goal = stop-blocking gate.** Every time you try to stop with "all done", the Stop hook re-checks the DoD — if unmet, the stop is
   blocked and you continue; if met, clear. Hook = `${CLAUDE_PLUGIN_ROOT}/assets/hooks/goal-stop-gate.sh` (installed into the target repo's
   `.claude/settings.json`).
+  - 🚩 **RED LINE (M8) — the Stop-hook is FORCED at install.** Bootstrap installs and arms `goal-stop-gate.sh` **unconditionally**
+    (`install_stop_hook` is not honored as an off switch), so a run whose Stop-hook is not armed is not a valid loop — never skip or route
+    around the install. The DoD gate then runs on every stop attempt; the one documented runtime disable is `engine.goal.enabled: false`
+    (`engine-loop-and-goal.md §5`) — a deliberate off switch, not a bypass, and not to be set during an autonomous run.
 - ⚠️ **The infinite-loop guards stay on at all times** — `goal.max_iterations`, `budgets` (loops/tokens/time), the dead-man's-switch, and the
   no-progress (stall) guard. An unbounded self-waking loop is the one failure that can't recover itself, so when a ceiling is hit the gate lets the
   stop through and reports the incomplete reason (budget/approval/blocked). The hook is always fail-open (exit 0), and it never spawns a new recursive
@@ -105,6 +112,9 @@ This board is shared with other people. **Execute milestones faithfully**, and o
   card's `Goal-link:` line. If there is no link to quote, do not start (north-star.md §4).
 - **In progress**: leave comments on significant decisions, design choices, blockers, and discovered issues as they happen (no batch write-ups later).
 - **Done**: leave a result comment (what, how, where the evidence is), move to `Done`, and attach the E2E evidence path.
+- **Per-loop PROGRESS REPORT (M5 — every loop)**: at the end of each loop post a short human-readable report — *what this loop did · what's next* —
+  to the active card **and** notify (approval/notify channel), so a person can follow the run loop-by-loop without reading code. This is the
+  per-loop human heartbeat — distinct from the machine `PROGRESS.md` view regenerated in §4 ① and from the per-card start/done comments above.
 - If blocked and needing human input, leave the reason on the card, `blocked` + into the approval queue (the loop as a whole does not stop).
 
 Board writes go through `bash ${CLAUDE_PLUGIN_ROOT}/scripts/board.sh` (card moves, fields, evidence); reads/dependency gates through
@@ -133,8 +143,11 @@ Precise procedure = `${CLAUDE_PLUGIN_ROOT}/references/loop-protocol.md`. One loo
    `lane-fanout.workflow.js` instead (no merge inside — ⑦ stays yours). GC stale worktrees first; per-wave lanes ≤
    `config.worktree.max_lanes`, concurrency ≤ `config.workflow.max_subagents`. For shapes neither script fits, design
    with §0 and codify recurrences (§3).
-3~6. **Lanes in parallel** — TDD + atomic commits → rulepack 4 gates (format·lint·type·test + per-card coverage —
-   `references/tdd-layer.md` §3.5, all green inside the lane; 3rd consecutive failure of the SAME gate →
+3~6. **Lanes in parallel — Design → Plan → Build (M3)** — each Ready card is driven end to end in its lane:
+   **① Design → Plan** — invoke the **`design` skill** (it authors the self-contained `imgyu-techdoc` HTML design doc and writes the
+   `card-planning` implementation plan onto the card — `references/card-planning.md`), landing the design URL + plan on the card *before* Red.
+   **② Build (TDD)** — only then TDD-build against that plan: Red→Green→Refactor + atomic commits → rulepack 4 gates (format·lint·type·test +
+   per-card coverage — `references/tdd-layer.md` §3.5, all green inside the lane; 3rd consecutive failure of the SAME gate →
    run gstack investigate if present BEFORE parking — root cause beats retry) → push → hierarchical CI (green) →
    pre-merge review (gstack review if present, alongside — never instead of — the rulepack gates) → **pre-merge E2E**
    (real deployment on a lane-isolated port → scenario → capture evidence; gstack qa-only may drive it, but the
@@ -149,6 +162,17 @@ Precise procedure = `${CLAUDE_PLUGIN_ROOT}/references/loop-protocol.md`. One loo
    gstack land-and-deploy is advisory-only)? If not, pace the next iteration (§0); if yes, report completion —
    at milestone close, answer the verdict question (north-star.md §4) and, if present, run gstack health + retro (per-milestone cost class).
 
+> **The 1% rule — invoke, don't reimplement** (`references/skill-invocation.md`). loop is ~1% orchestration glue; the other 99% is proven skills and
+> workflows it **invokes**. loop's fan-out map, per card:
+> `design` (invoke) → build [`tdd-workflow` · superpowers] → waves [`milestone-fanout` / `lane-fanout`] → E2E → `gh-roadmap` (status).
+> `gh-roadmap` is a **sub-skill** (board I/O) — call it, never re-implement board graphql by hand.
+
+> **Fire-and-continue — background workflows (M8).** A dynamic workflow runs in the **background**: invoking it returns a `runId` immediately
+> (`workflow-tool-spec.md`). After launching one, **DO NOT idle** waiting on it — advance to the next Ready card / next wave and keep the loop
+> productive. Poll a `runId` **ONLY** when a downstream step genuinely needs that workflow's result (the "must wait" case — e.g. the integrator needs
+> a lane's merge outcome before branching the next wave). Fire-and-continue changes nothing about safety: the §0 hard guards
+> (`max_iterations` · budgets · stall · dead-man) stay on unchanged.
+
 - A high-risk lane parks only itself (Parked + approval queue, `approval_queue.sh`); the other lanes continue.
 - On a **shared board** (`config.board.shared: true` — one board spanning N repos, linked by gh-roadmap), this loop executes only
   THIS repo's assigned slice: `roadmap_sync`/`goal_check` count only this repo's cards. One repo = one ultraloop session; the
@@ -158,8 +182,12 @@ Precise procedure = `${CLAUDE_PLUGIN_ROOT}/references/loop-protocol.md`. One loo
 
 ## 5. Entry preconditions (the state pm left behind)
 
-- Approved cards on the board (`roadmap:approved`) + acceptance criteria/scenarios frozen. If missing, stop and announce "pm planning needed" (do not define scope).
-- The target repo is bootstrapped by `bootstrap_repo.sh` (confirm the goal Stop-hook install). If not, run it idempotently.
+- **First-slice gate (M5 — replaces whole-board pre-approval).** The board must be **populated by pm** (milestones + Ready cards with
+  acceptance criteria/scenarios frozen) — but you do **not** wait for whole-board sign-off (`roadmap:approved`) before anything runs. Instead:
+  **build + deploy + evidence the FIRST vertical card of the first milestone**, then ask the human **"direction ok?" exactly ONCE** (approval queue
+  + notify). On approval, run **autonomously to the milestone boundary** (no per-card asks after that). On rejection, route the correction to pm; do
+  not widen scope yourself. If the board is empty/unpopulated, stop and announce "pm planning needed" (do not define scope).
+- The target repo is bootstrapped by `bootstrap_repo.sh` (confirm the **forced** goal Stop-hook is armed — §0 red line). If not, run it idempotently.
 - config = `ultraloop.config.yaml` at the target repo root (searched upward from cwd).
 - **New-run detection**: if this is the *first* loop of a new mission / newly approved board, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/cost_guard.sh --reset`
   to clean the previous run's counters and goal-state leftovers (full-board-completion leftovers reset automatically, but budget-stop leftovers need a manual --reset —
@@ -175,6 +203,9 @@ Precise procedure = `${CLAUDE_PLUGIN_ROOT}/references/loop-protocol.md`. One loo
 |  North-star realignment (recall the goal every loop) | `${CLAUDE_PLUGIN_ROOT}/references/north-star.md` |
 | Field failure ledger (FM1~15) | `${CLAUDE_PLUGIN_ROOT}/references/failure-modes.md` |
 | Loop body, parallel lanes, pre-merge E2E | `${CLAUDE_PLUGIN_ROOT}/references/loop-protocol.md` |
+| Per-card Design → Plan → Build (card-planning) | `${CLAUDE_PLUGIN_ROOT}/references/card-planning.md` (+ `design` · `imgyu-techdoc` skills) |
+| The 1% rule — invoke, don't reimplement (fan-out map) | `${CLAUDE_PLUGIN_ROOT}/references/skill-invocation.md` |
+| Workflow tool API contract (background · fire-and-continue) | `${CLAUDE_PLUGIN_ROOT}/references/workflow-tool-spec.md` |
 | Tier1 TDD | `tdd-workflow` skill + `${CLAUDE_PLUGIN_ROOT}/references/tdd-layer.md` |
 | Tier2 production E2E, integrity | `${CLAUDE_PLUGIN_ROOT}/references/e2e-production.md` |
 | Board reads / card moves / traceability | `${CLAUDE_PLUGIN_ROOT}/references/git-and-issues.md` |

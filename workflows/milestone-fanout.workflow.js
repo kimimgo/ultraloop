@@ -27,7 +27,7 @@ export const meta = {
 //   repo: "owner/name",
 //   milestone: { title, goal, verdictQuestion?, acceptance? },
 //   cards: [{ number, title, goalLink, acceptance, e2e?, dependsOn?: [numbers] }],   // ALL open cards of the milestone
-//   maxLanes?: 2,               // per-wave parallelism (config.worktree.max_lanes)
+//   maxLanes?: 4,               // per-wave parallelism (config.worktree.max_lanes; v0.13 default 4)
 //   maxWaves?: cards.length,
 //   casting?: { coding?: {model,effort}, verification?: {model?,effort}, reasoning?: {model?,effort} },
 // }
@@ -37,7 +37,7 @@ if (!cards.length) return { merged: [], leftovers: [], drained: true, note: 'no 
 
 const repo = (args && args.repo) || ''
 const ms = (args && args.milestone) || { title: '(unnamed)' }
-const maxLanes = (args && args.maxLanes) || 2
+const maxLanes = (args && args.maxLanes) || 4
 const maxWaves = (args && args.maxWaves) || cards.length
 const cast = (args && args.casting) || {}
 const coding = { model: 'sonnet', effort: 'xhigh', ...(cast.coding || {}) }
@@ -145,6 +145,8 @@ while (wave < maxWaves) {
     if (batch.every(b => !conflicts.has(`${n}|${b}`))) batch.push(n)
   }
   wave++
+  if (batch.length === 1 && runnable.length > 1)
+    log(`wave ${wave}: greedy batch collapsed to a single card (#${batch[0]}) — ${runnable.length - 1} other runnable card(s) held out by conflict edges; check for over-conservative conflicts serializing this milestone`)
   log(`wave ${wave}: cards ${batch.map(n => '#' + n).join(', ')} (${runnable.length - batch.length} runnable deferred)`)
 
   const results = (await pipeline(
@@ -156,6 +158,7 @@ Goal-link: ${card.goalLink || '(missing — if truly absent on the card, stop an
 Acceptance criteria:\n${card.acceptance}
 ${card.e2e ? `E2E scenario:\n${card.e2e}` : ''}
 Work entirely inside your isolated worktree (it branches from fresh origin/${'{default}'} — prior waves are already merged in). Protocol:
+0. Design → Plan (BEFORE Red, per the design half): first author a concise single self-contained HTML design doc for THIS card's slice — house style (sidebar TOC, semantic Mermaid, one "design intent" note on what was intentionally left out); it describes the SYSTEM being built, never a tool/agent/automation. Save it in the repo (e.g. docs/design/issue-${card.number}.html) and record its path/URL in the card's Design-Doc field. Then write the card's "## Implementation plan": file structure (files touched, one responsibility each), 3-6 right-sized TDD tasks each with a Consumes/Produces interface block, and NO placeholders (every code step shows code). Steps 1-4 below implement THAT plan.
 1. TDD — failing test first (Red), implement (Green), refactor. Atomic commits; commit/PR text in plain product language, never naming any tool, agent, or automation.
 2. Repo quality gates (format · lint · typecheck · tests + coverage) all green.
 3. Push the branch and open a PR (do NOT merge — merging is serialized by the integrator).

@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <strong>v0.12.0</strong> &nbsp;·&nbsp; <code>/ultraloop:pm</code> &nbsp;·&nbsp; <code>/ultraloop:loop</code>
+  <strong>v0.13.0</strong> &nbsp;·&nbsp; <code>/ultraloop:pm</code> &nbsp;·&nbsp; <code>/ultraloop:design</code> &nbsp;·&nbsp; <code>/ultraloop:loop</code>
 </p>
 
 ---
@@ -22,17 +22,26 @@
 Most "autonomous coding" setups collapse planning and execution into one all-powerful agent. That agent
 can silently rewrite its own scope, skip tests, and leave a board that no longer reflects reality.
 
-**ultraloop separates the two jobs and the two permission sets:**
+**ultraloop separates three jobs and three permission sets:**
 
-| | `ultraloop:pm` — the planner | `ultraloop:loop` — the engineer |
-|---|---|---|
-| **Owns** | scope, roadmap, the board | code, branches, merges |
-| **Writes** | milestones, issues, acceptance criteria | source, tests, status + progress comments |
-| **Cannot** | touch code (no `Write`/`Edit` tool) | define roadmap or change scope |
-| **Tools** | `gh`, read-only `git`, search, ask | full toolchain (the loop needs it) |
+| | `ultraloop:pm` — the planner | `ultraloop:design` — the designer | `ultraloop:loop` — the engineer |
+|---|---|---|---|
+| **Owns** | scope, roadmap, the board | one card's design + implementation plan | code, branches, merges |
+| **Writes** | north star, milestones, **seed cards** | design doc + `## Implementation plan` on the card | source, tests, status + progress comments |
+| **Cannot** | touch code, pre-decompose tactics, design | write source or merge | define roadmap or change scope |
+| **When** | once, up front (human present) | per card, before the first test | autonomous, drains the board |
 
-The board (GitHub Projects v2) is the **single source of truth**. `pm` fills it; `loop` drains it.
-Neither can do the other's job — the separation is enforced at the tool-permission layer, not by trust.
+The board (GitHub Projects v2) is the **single source of truth**. `pm` fills it *thin* — a north star plus
+seed cards, no tactical pre-decomposition. `loop` drains it, and for each card first invokes `design`
+(design doc + plan on the card) and then builds. The separation is enforced at the tool-permission layer,
+not by trust: `pm` has no `Write`/`Edit`, `design` never merges, `loop` never redefines scope.
+
+Skill invocation is **explicit and verified** — the *1% rule*: each orchestrator calls its mapped sub-skills
+by exact name; if a stage is even 1% relevant, it fires; it verifies the skill ran; and it fails loud rather
+than silently degrading to a solo agent. So the plugin stays lean (only cherry-picked essentials are
+bundled) while orchestration actually happens. And every card is a **container** — plan, design-doc link,
+progress, and dual-recorded E2E evidence all live on the one card, so a card you open weeks later shows its
+whole life. ([`references/skill-invocation.md`](references/skill-invocation.md) · [`references/card-container.md`](references/card-container.md))
 
 ## The trinity
 
@@ -51,17 +60,21 @@ goal (/loop + /goal)    = WHEN to stop      — self-pacing + a stop-gate that r
 - **Goal engine** — `/loop` (self-pacing via `ScheduleWakeup`/`CronCreate`, waking on events with `Monitor`)
   plus `/goal` (a Stop-hook gate that refuses to stop until the Definition of Done is met), with hard guards
   against runaway loops. [`references/engine-loop-and-goal.md`](references/engine-loop-and-goal.md).
-- **Board = SoT** — every card carries a `Goal-link:` to a milestone goal, which chains to one north star
-  (no filler cards). `loop` moves each card through `In Progress → Done` and logs decisions, blockers, and
-  evidence as it goes. One board may span N repos (a gh-roadmap multi-repo link); ultraloop stays
-  single-repo — each repo runs its own session, executing only its assigned slice (`board.shared: true`).
+- **Board = SoT, every card a container** — each card carries a `Goal-link:` to a milestone goal (which
+  chains to one north star), a `Design-Doc` link to its published design, an on-card `## Implementation plan`,
+  progress comments, and dual-recorded E2E evidence. `loop` moves each card `In Progress → Done` and logs as
+  it goes, so the card shows its whole life. One board may span N repos (a gh-roadmap multi-repo link);
+  ultraloop stays single-repo — each repo runs its own session on its assigned slice (`board.shared: true`).
 
 ## Philosophy
 
 1. **The board is the single source of truth.** Scope, priority, and progress live on the
    GitHub Projects board — never in side state. `pm` fills it; `loop` drains it.
-2. **Separation of powers, enforced — not trusted.** `pm` owns *what & why* and has **no
-   `Write`/`Edit` tool**; `loop` owns *how* and cannot define roadmap or scope.
+2. **Separation of powers, enforced — not trusted.** `pm` owns *what & why* (thin: north star + seed cards,
+   **no `Write`/`Edit`**, no design, no tactical decomposition); `design` owns *how* per card (design doc +
+   plan, never merges); `loop` owns the build and cannot define roadmap or scope.
+2b. **Explicit invocation, loud fallback (the 1% rule).** Orchestrators call sub-skills by exact name, fire
+   on 1% relevance, verify the call ran, and state any fallback — never a silent degrade to a solo agent.
 3. **Workflows are designed, then codified.** Improvise a shape once; the second time it recurs,
    it becomes a script with an `args` contract. The methodology compounds instead of evaporating.
 4. **Casting is code.** Model×effort per stage type lives in config and script defaults —
@@ -106,32 +119,37 @@ specialist skill and falls back to a built-in path if that skill isn't installed
 
 | Skill | Role |
 | --- | --- |
-| **gh-roadmap** *(bundled)* | Board structure & setup authority — board, fields, views, Roadmap layout, built-in workflows, multi-repo links. Ships inside this plugin (`skills/gh-roadmap/`); a local copy at `~/.claude/skills/gh-roadmap` takes precedence if present. |
-| product-strategy / outcome-roadmap / strategy-red-team / prioritization-frameworks | The PM chain — strategy, outcome framing, assumption red-teaming, prioritization. |
-| speckit | Spec authoring. |
-| tdd-workflow | Test-driven Red → Green → Refactor. |
-| **gstack lane** *(entirely optional)* | If the [gstack](https://github.com/gstackio) skill suite is installed, ultraloop calls it at mapped steps — office-hours/autoplan/spec in planning, investigate/qa-only/review in the loop, health/retro at milestone close, canary post-deploy. Every entry degrades to a built-in path; **merge/deploy authority never leaves ultraloop** (gstack drafts, ultraloop scripts execute). No gstack? Nothing breaks — the probe prints one summary line and moves on. |
+| **gh-roadmap** *(bundled)* | Shared board-I/O sub-skill — board, fields, views, Roadmap layout, multi-repo links. `pm` calls it to write the board, `loop` to move cards. Ships inside this plugin (`skills/gh-roadmap/`). |
+| **imgyu-techdoc** *(bundled)* | Single-file HTML design-doc house style. `design` authors each card's design doc with it, then publishes to an artifact host and links it from the card's `Design-Doc` field. |
+| **The insight layer** *(bundled, cherry-picked)* | `opportunity-solution-tree` · `identify-assumptions` → `prioritize-assumptions` · `brainstorming` · `pre-mortem` — `pm`'s discovery/risk fan-out, so it delivers a point of view, not just cards. |
+| product-strategy / outcome-roadmap / strategy-red-team / prioritization-frameworks / speckit | The strategy chain — strategy, outcome framing, assumption red-teaming (the barrier), prioritization, spec authoring. |
+| tdd-workflow / superpowers | Test-driven Red → Green → Refactor in the build lanes. |
+| **gstack lane** *(entirely optional)* | If the [gstack](https://github.com/gstackio) skill suite is installed, ultraloop calls it at mapped steps — investigate/qa-only/review in the loop, health/retro at milestone close, canary post-deploy. Every entry degrades to a built-in path; **merge/deploy authority never leaves ultraloop**. No gstack? Nothing breaks. |
 
-Call if present, fall back if absent — loudly, never silently. (full registry with modes,
-evidence contracts, and invocation policies: `references/dependencies.md`)
+**The 1% rule** governs every call: fire the mapped skill if it is even 1% relevant, verify it ran, and fall
+back **loudly, never silently**. Bundled skills are always present; referenced ones fall back to a built-in
+path that is stated, not hidden. (full map: [`references/skill-invocation.md`](references/skill-invocation.md)
+· [`references/dependencies.md`](references/dependencies.md))
 
 ## How the loop works
 
-`pm` plans once and writes the board; `loop` reads the board and ships it, handing back to `pm`
-only when scope must change.
+`pm` plans once and writes a thin board; `loop` drains it, and for each card first invokes `design`
+(design doc + plan on the card) and then builds — handing back to `pm` only when scope must change.
 
 ```mermaid
 flowchart LR
     M[Mission] --> PM
     subgraph PM["ultraloop:pm — plan (one-shot)"]
       direction TB
-      P1[strategy] --> P2[outcome roadmap] --> P3[red-team] --> P4[spec] --> P5[prioritize] --> P6[write board]
+      P1[discovery + risk fan-out] --> P2[strategy + north star] --> P3[red-team] --> P4[spec + prioritize] --> P5[write thin board:<br/>north star + seed cards]
     end
-    PM -->|board approved| B
+    PM -->|seed cards| B
     subgraph B["ultraloop:loop — execute (self-paced loop)"]
       direction TB
-      B1[read board SoT] --> B2[Ready card] --> B3[TDD] --> B4[pre-merge E2E] --> B5[merge + log evidence]
+      B1[Ready card] --> B2["ultraloop:design<br/>design doc + plan on card"] --> B3[TDD build] --> B4[pre-merge E2E] --> B5[merge + log evidence]
     end
+    B -->|after 1st slice ships| REV{direction ok?}
+    REV -->|yes → autonomous to milestone boundary| B
     B -->|scope change / stale board| PM
     B -->|all cards Done + DoD + prod HITL| Z([Shipped])
 ```
@@ -143,18 +161,19 @@ flowchart TD
     A[Mission / epic] --> B{Repo + board ready?}
     B -- no --> S[bootstrap_repo.sh<br/>labels · board · CI · goal-gate · worktree.baseRef]
     S --> C
-    B -- yes --> C[product-strategy]
-    C --> D[outcome-roadmap]
-    D --> E[strategy-red-team<br/>attack assumptions + kill criteria]
-    E -->|fails gate| D
+    B -- yes --> DISC[discovery fan-out — parallel<br/>opportunity-solution-tree · assumptions · brainstorming]
+    DISC --> C[product-strategy → north star]
+    C --> E[risk — parallel<br/>strategy-red-team · pre-mortem]
+    E -->|red-team fails gate| C
     E -->|passes| F[spec — speckit chain]
     F --> G[prioritization-frameworks · RICE/ICE]
-    G --> H[write milestones · issues · cards<br/>acceptance criteria + E2E scenarios + deps]
-    H --> I{User approves scope?}
-    I -- no --> D
-    I -- yes --> J[label roadmap:approved · freeze spec]
-    J --> K[[hand off to loop]]
+    G --> H[write THIN board<br/>north star + milestone SEED cards<br/>Goal-link + acceptance + E2E scenarios]
+    H --> K[[hand off to loop — no whole-board pre-approval]]
 ```
+
+`pm` writes a **thin** board — a north star and seed cards, not a pile of pre-decomposed tactical cards.
+There is no whole-board approval gate up front; the human checks direction once, later, after the first
+slice actually ships (see the build loop).
 
 ### Build loop — board → shipped
 
@@ -164,8 +183,8 @@ flowchart TD
     B -- no --> Z{All Done + DoD + prod HITL?}
     Z -- yes --> DONE([report complete])
     Z -- no --> PACE[pace next iteration via /loop] --> A
-    B -- yes --> C[milestone-fanout.workflow.js<br/>reasoning agent builds dep graph → code validates → parallel waves]
-    C --> D[per lane: Red → Green → Refactor — sonnet·xhigh<br/>worktree from merged base]
+    B -- yes --> C[milestone-fanout.workflow.js<br/>reasoning agent builds dep graph → code validates → parallel waves ≤ max_lanes]
+    C --> D[per lane: design doc + plan on card → Red → Green → Refactor — sonnet·xhigh<br/>worktree from merged base]
     D --> E[atomic commit → push → tiered CI]
     E --> F{Pre-merge production E2E + adversarial verify}
     F -- fail --> LEFT[leftover → approval queue / next tick]
@@ -199,13 +218,14 @@ you rarely call it by hand. It probes prerequisites then sets up, skipping anyth
   Milestones + labels without a project-scope token), copy issue/PR/CI templates.
 - **CI/CD · protection** — self-hosted runner check, `main` branch protection, staging (auto) +
   production (HITL) environments.
-- **goal stop-gate** — install the fail-open Stop hook into the target repo's `.claude/settings.json`.
+- **goal stop-gate (forced)** — install the fail-open Stop hook into the target repo's
+  `.claude/settings.json` **unconditionally** (v0.13: `install_stop_hook` is not an off switch).
 - **Dynamic-workflow casting** — record the casting policy (coding model/effort + `max_subagents`)
   into `.claude/settings.json` as the default for fanned-out subagents.
-- **Board via gh-roadmap golden template** — views, the Roadmap layout, and built-in workflows
-  can't be created through the API, so `copyProjectV2` clones a golden template
-  (`config.roadmap.template_node_id`) that already carries three role views
-  (Roadmap — PM · schedule / Dev Board / Build Monitor) plus the added Horizon and Target Date fields.
+- **Board via gh-roadmap golden template** — views and the Roadmap layout can't be created through the
+  API, so `copyProjectV2` clones a golden template (`config.roadmap.template_node_id`) that already carries
+  four role views (**Roadmap — PM · schedule / Dev Board / Build Monitor (by Wave) / Card Audit**) plus the
+  card-container fields: `Design-Doc`, `Stage` (Planning/Designing/Building), `Wave`, Horizon, Target Date.
 - **★ Worktree optimization** — write `worktree.baseRef` into `.claude/settings.json` from
   `config.worktree.base_ref` (default **`fresh`**). This fixes where parallel build lanes branch:
 
@@ -226,10 +246,13 @@ ultraloop/
 │   ├── plugin.json          # registers the skills
 │   └── marketplace.json     # this repo as a Claude Code marketplace
 ├── skills/
-│   ├── pm/SKILL.md          # plan deeply (north star → milestone goals) → write the board
-│   ├── loop/SKILL.md        # read the board → dynamic workflows → TDD + E2E → ship
-│   └── gh-roadmap/          # bundled board authority (Projects v2 structure & setup)
-├── workflows/               # ★ reusable dynamic-workflow scripts (lane-fanout · pm-chain · adversarial-verify)
+│   ├── pm/SKILL.md          # plan thin (north star + seed cards) → write the board — no code
+│   ├── design/SKILL.md      # per card: design doc (imgyu-techdoc) + implementation plan → attach to card
+│   ├── loop/SKILL.md        # drain the board → design per card → TDD + E2E → ship
+│   ├── gh-roadmap/          # bundled board authority (Projects v2 structure & setup)
+│   ├── imgyu-techdoc/       # bundled single-file HTML design-doc house style
+│   └── …                    # bundled insight layer: opportunity-solution-tree, {identify,prioritize}-assumptions, brainstorming, pre-mortem
+├── workflows/               # ★ reusable dynamic-workflow scripts (milestone-fanout · lane-fanout · pm-chain · adversarial-verify)
 ├── references/              # progressive-disclosure docs (dynamic-workflow-design, engine, E2E, DoD, …)
 ├── scripts/                 # the engine: roadmap sync, board I/O, worktrees, cost guard, goal gate, …
 ├── assets/                  # hooks (goal gate), CI workflows, templates
@@ -245,7 +268,7 @@ infrastructure. Each is checked loudly at bootstrap — nothing fails silently:
 |---|---|---|
 | **Project-scope token** — a PAT (classic) with `project` scope, exported as `UE_PROJECT_TOKEN` | the default `GITHUB_TOKEN` cannot write GitHub Projects v2 boards | 2 min — <https://github.com/settings/tokens> → `project` scope |
 | **Self-hosted runner** on the target repo | CI gates assume a runner you control (hosted-runner minutes burn fast in an overnight loop) | ~15 min — <https://docs.github.com/en/actions/hosting-your-own-runners> |
-| **Golden template board** *(optional)* | views, the Roadmap layout, and built-in workflows cannot be created via API — a copied template is the only automation | ~20 min once, reused forever; skip it and you get a functional fresh board without the Roadmap views (`skills/gh-roadmap/references/golden-template-setup.md`) |
+| **Golden template board** *(optional)* | views and the Roadmap layout cannot be created via API — a copied template is the only automation | ~20 min once, reused forever; carries the four role views + card-container fields (`Design-Doc`/`Stage`/`Wave`). Skip it and you get a functional fresh board without the Roadmap views (`skills/gh-roadmap/references/golden-template-setup.md`) |
 
 Discord notifications are optional (console fallback); approvals are a file queue answered from any
 shell — zero extra infrastructure.
@@ -263,16 +286,19 @@ cp ~/.claude/plugins/cache/ultraloop/ultraloop/*/config.example.yaml ./ultraloop
   || echo "skip — /ultraloop:pm will seed it"
 #    edit `repo:` and the mission, leave the rest on `auto`
 
-# 3. Plan — north star & per-milestone goals first, then milestones, cards (each with a
-#    goal-link line), acceptance criteria
+# 3. Plan — north star first, then milestones with seed cards (each with a goal-link
+#    line + acceptance criteria). Thin board, no tactical pre-decomposition.
 /ultraloop:pm
 
-# 4. Loop — reads the approved board and ships it, autonomously
+# 4. Loop — drains the board autonomously; per card it invokes design (design doc +
+#    plan), then TDD-builds. You approve direction ONCE, after the first slice ships.
 /ultraloop:loop
 ```
 
-`pm` is a one-shot planning session (re-enter only when the roadmap changes). `loop` self-paces with
-`/loop` and gates its own stops with `/goal` until every card is Done *with evidence*.
+`pm` is a one-shot planning session (re-enter only when the roadmap changes). Instead of a whole-board
+pre-approval, `loop` ships the first vertical card, asks *"direction ok?"* once, then runs autonomously to
+the milestone boundary. It self-paces with `/loop` and gates its own stops with `/goal` (forced) until every
+card is Done *with evidence*. `/ultraloop:design` also runs standalone if you want to design a single card.
 
 > **Want to try without installing?** `claude --plugin-dir /path/to/ultraloop`
 

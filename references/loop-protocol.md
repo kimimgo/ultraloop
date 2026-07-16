@@ -18,7 +18,7 @@ the per-loop workflow is composed dynamically based on issue nature · stack · 
  ② lane forming  next N Ready issues (=worktree.max_lanes) — no Depends-on violations + no module collisions
                 · stale worktree GC (worktree_mgr.sh gc, in-flight protected) · create per-lane worktrees
 [lanes in parallel ③~⑥ — independent (sub)agent per worktree]
- ③ Dynamic TDD   compose the workflow to fit the issue → Red→Green→Refactor + atomic commits (body in the product language)
+ ③ Design→Plan→TDD  author the card's design doc (→ Design-Doc field) + write its ## Implementation plan on the card, then compose the workflow → Red→Green→Refactor + atomic commits (body in the product language)
  ④ push          triggers layered CI
  ⑤ CI green      watch until all bot QA (lint/type/test/build) passes (ship_pr.sh watches)
  ⑥ ★pre-merge E2E real deploy (lane-isolated ports) → agent click/shell scenarios → capture evidence (e2e_*.sh)

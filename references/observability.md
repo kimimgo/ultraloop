@@ -7,6 +7,13 @@
 - **dead-man's-switch**: if more than `config.budgets.dead_mans_switch_minutes` (default 30) has passed since the last
   progress (commit/card move/heartbeat), notify — detects stalls and hangs from the outside.
 
+## Per-loop progress report
+Each loop iteration emits a compact progress report so a human can follow along per loop, not only at the end.
+At every loop ① (alongside `heartbeat.sh`), write one line — **loop N: cards advanced · stage transitions · blockers · next** —
+to the board card (or its linked issue) and, if `config.discord.enabled`, a matching `notify.sh` line. Derive the report from
+the state already tracked by `status.sh`/`heartbeat.sh` (loop counter + last-progress timestamp in `${TMPDIR:-/tmp}/ultraloop/`);
+do not add a new state dir. A report-write failure never kills the loop (same egress-only, exit-0 contract as `heartbeat.sh`/`notify.sh`).
+
 ## 2. Cost/time ceilings (REQ-ST-4) — budget-stop
 `bash ${CLAUDE_PLUGIN_ROOT}/scripts/cost_guard.sh` — called at every loop ①. Checks `config.budgets`:
 - `max_loops` (0=unlimited, though goal.max_iterations is the ceiling) · `max_wall_clock_hours` (default 24) ·

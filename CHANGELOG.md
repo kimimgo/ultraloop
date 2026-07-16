@@ -2,6 +2,45 @@
 
 All notable changes to ultraloop are documented here. Versioning is [SemVer](https://semver.org/).
 
+## 0.13.0
+
+The **card = container** release. Three orchestrators (pm · design · loop) replace two, skill invocation
+becomes explicit and verified (the 1% rule), and each card carries its whole life — plan, design doc,
+progress, and evidence — in one place.
+
+### Added
+- **Three orchestrator skills.** `ultraloop:pm` (thin planner — north star + seed cards only, insight-first
+  fan-out), the new **`ultraloop:design`** (one card → a single self-contained HTML design doc via bundled
+  `imgyu-techdoc`, published to an artifact host, plus an on-card implementation plan via `card-planning`),
+  and `ultraloop:loop` (the autonomous engine that per card invokes `design`, then TDD-builds through parallel
+  waves + pre-merge E2E). `gh-roadmap` becomes a shared board-I/O sub-skill.
+- **`references/skill-invocation.md` — the 1% rule.** Orchestrators call mapped sub-skills by exact name; if a
+  stage is even 1% relevant, fire it; verify it ran; fail loud, never silent-degrade. Fixes "the referenced
+  skills never actually fire" without bloating the plugin.
+- **`references/card-container.md`** — one issue holds background + acceptance + Goal-link + `## Implementation
+  plan`; a `Design-Doc` card field links the published design doc; E2E evidence is dual-recorded (canonical
+  `e2e/reports/*.md` that `goal_check.sh` greps, plus a human mirror on the card).
+- **Insight layer, vendored (cherry-picked, with provenance):** `opportunity-solution-tree` (Teresa Torres),
+  `identify-assumptions`, `prioritize-assumptions`, `pre-mortem`, `brainstorming` — pm's discovery/risk fan-out,
+  so pm delivers a point of view, not just cards.
+- **`scripts/config_check.sh` (+ `tests/config_check.bats`)** — a session/run config doctor: token, board access,
+  bootstrap marker, runner, sub-skill availability; loud on a missing required item, never a silent proceed.
+- **`references/card-planning.md`** — the per-card planning gate (cherry-picked from superpowers `writing-plans`).
+- **`references/workflow-tool-spec.md`** — the Workflow-tool API contract that `dynamic-workflow-design.md` builds to.
+- **Board fields** `Design-Doc`, `Stage` (Planning/Designing/Building), `Wave`, and four golden-template views
+  (Roadmap · Dev Board · Build Monitor by Wave · Card Audit).
+
+### Changed
+- **pm is thin** — north star + seed cards only; it no longer pre-decomposes tactics or designs (that is `design` + `loop`).
+- **First-slice human gate** replaces whole-board pre-approval — approve once after the first vertical card ships,
+  then autonomous to the milestone boundary; per-loop progress reports.
+- **Parallelism actually fires** — per-wave lane default 2 → 4; `lane-fanout` no longer hard-drops cards past the
+  first batch (a wave loop processes all); `milestone-fanout` warns when a batch collapses to serial.
+- **Loop engine hardened** — the `/goal` Stop-hook is forced (non-bypassable, DoD-gated); the loop adopts an
+  ultracode posture (workflow-orchestrated by default) and fires background workflows fire-and-continue, polling
+  only when a downstream step needs the result.
+- `imgyu-techdoc` is **bundled** into the plugin (self-contained; no `~/.claude` dependency).
+
 ## 0.12.0
 
 The **lite** release — back to the founding trinity: **board (SoT) × dynamic workflow × goal engine**. Everything

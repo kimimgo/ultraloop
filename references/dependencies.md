@@ -29,19 +29,28 @@ silently degrade on absence — leave a clear note in the PROGRESS view/console.
 
 ---
 
-## 2. Per-stage orchestration map
+## 2. Per-stage orchestration map (pm · design · loop)
 
-| Stage | Skill invoked (if present) | ultraloop role |
+Three orchestrators fan out to the sub-skills below **by exact name**, following the **1% rule** in
+`references/skill-invocation.md` (fire if even 1% relevant · verify it ran · fail loud, never silent-degrade).
+Dependent stages run sequentially; independent stages run in parallel (`workflow-tool-spec.md`). Bundled skills
+ship in `skills/`; the rest are called by name and fall back loudly if absent.
+
+| Orchestrator · stage | Skill invoked (by name) | ultraloop role |
 |---|---|---|
-| Strategy | `product-strategy` | Receive the product strategy canvas |
-| Roadmap | `outcome-roadmap` | output→outcome roadmap (checked every loop) |
-| Adversarial validation | `strategy-red-team` | Attack assumptions + kill criteria — **no spec entry without passing** |
-| Spec | `speckit` (constitution→specify→clarify→plan→tasks→analyze→taskstoissues) | Spec authority |
-| Prioritization | `prioritization-frameworks` | Prioritize problems with RICE/ICE |
-| **Board** | **`gh-roadmap`** ★ | Board · fields · views · roadmap · built-in workflows · multi-repo |
-| Tier1 TDD | `tdd-workflow` | Unit/integration (Red→Green→Refactor) |
-| Verify · review · deploy (guided) | `gstack-qa` · `gstack-review` · `gstack-investigate` · `gstack-ship` | Use if present (own scripts are the fallback) |
-| Multi-agent fan-out | (Claude Code **Workflow tool**) | Dynamic workflows — `dynamic-workflow-design.md` + shipped `workflows/` scripts |
+| **pm** · discovery | `opportunity-solution-tree` · (`identify-assumptions` → `prioritize-assumptions`) · `brainstorming` (parallel) ★ bundled | Map outcome→opportunities→solutions→experiments; surface assumptions + rank which to test — the insight layer |
+| **pm** · strategy | `product-strategy` | Receive the product strategy canvas |
+| **pm** · roadmap | `outcome-roadmap` | output→outcome roadmap (checked every loop) |
+| **pm** · risk | `strategy-red-team` · `pre-mortem` (parallel; red-team is the **barrier — no spec entry without passing**) ★ pre-mortem bundled | Attack assumptions + kill criteria; Tiger/Elephant risk triage |
+| **pm** · spec | `speckit` (constitution→specify→clarify→plan→tasks→analyze→taskstoissues) | Spec authority |
+| **pm** · prioritize | `prioritization-frameworks` | Prioritize the problems (RICE/ICE) right before card creation |
+| **pm** · board write | **`gh-roadmap`** ★ shared sub-skill | Board · fields · views · roadmap · multi-repo — writes a THIN board (north star + seed cards only) |
+| **design** · doc | **`imgyu-techdoc`** ★ bundled | one card → single self-contained HTML design doc → `artifacts-ops` publish → card `Design-Doc` field (`card-container.md`) |
+| **design** · plan | `card-planning.md` (from superpowers `writing-plans`) | the on-card implementation plan, authored in parallel with the design doc |
+| **loop** · build | `tdd-workflow` · superpowers | Tier1 TDD (Red→Green→Refactor) |
+| **loop** · waves | shipped `milestone-fanout` / `lane-fanout` (Workflow tool) | parallel worktree-isolated lanes (`dynamic-workflow-design.md` · `workflow-tool-spec.md`) |
+| **loop** · verify/review/deploy | `gstack-qa` · `gstack-review` · `gstack-investigate` · `gstack-ship` | Use if present (own scripts are the fallback) |
+| **loop** · board status | **`gh-roadmap`** ★ shared sub-skill | card status moves + evidence |
 
 ---
 

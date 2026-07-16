@@ -13,6 +13,12 @@ approval_queue.sh drain                            # step ①: unpark resolved i
 ```
 The queue is file-based (`${TMPDIR:-/tmp}/ultraloop-approvals/`). exit 0=Y (proceed) · 1=N (alternative/turn into an issue) · 4=hold (no response within TTL).
 
+> **v0.13 — FIRST-SLICE approval (timing change).** v0.13 replaces the old "pre-approve the whole board before execution"
+> with a single approval fired **after the first vertical card is built + deployed + evidenced** — the cheapest point to catch a
+> wrong direction. Once approved, the loop runs autonomously to the milestone boundary. Only the *timing/placement* of the human
+> approval moves; the async file-queue mechanism (§2–§3) is unchanged — the first-slice check enqueues + parks exactly like any
+> other approval and resolves via the same result file.
+
 ## 3. Receiving channels — egress-only compatible (REQ-APR-2)
 - **Result file** (primary): a human answers by writing the decision to the queue item —
   `echo Y > ${TMPDIR:-/tmp}/ultraloop-approvals/<id>.result` (or `N`). The notification message carries this exact

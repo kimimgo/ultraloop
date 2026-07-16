@@ -7,7 +7,7 @@
 set -uo pipefail
 SDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SDIR/_lib.sh" 2>/dev/null || true
-REPO="$(ue_repo)"; N="$(cfg_get worktree.max_lanes 2)"
+REPO="$(ue_repo)"; N="$(cfg_get worktree.max_lanes 4)"
 TOKEN_ENV="$(cfg_get roadmap.token_env UE_PROJECT_TOKEN)"
 PROJ="$(cfg_get roadmap.project_number "")"
 READY="$(cfg_get roadmap.ready_status Ready)"   # board Status option name (default Ready; the GitHub default board uses Todo)

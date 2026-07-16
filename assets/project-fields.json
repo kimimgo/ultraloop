@@ -46,6 +46,22 @@
       "name": "Target Date",
       "dataType": "DATE",
       "note": "End of the bar in the Roadmap layout view (target release date). ★ Without this field the roadmap view cannot draw schedule bars — the data basis for the user requirement 'a big schedule picture on the roadmap'. Already exists when the golden template is copied (idempotent)."
+    },
+    {
+      "name": "Design-Doc",
+      "dataType": "TEXT",
+      "note": "Per-card design-doc URL on artifacts.oliveeelab.com"
+    },
+    {
+      "name": "Stage",
+      "dataType": "SINGLE_SELECT",
+      "options": ["Planning", "Designing", "Building"],
+      "note": "Loop's in-card step; Status stays the coarse column"
+    },
+    {
+      "name": "Wave",
+      "dataType": "NUMBER",
+      "note": "Milestone-fanout parallel wave number, makes parallelism visible"
     }
   ]
 }
