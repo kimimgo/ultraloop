@@ -2,6 +2,23 @@
 
 All notable changes to ultraloop are documented here. Versioning is [SemVer](https://semver.org/).
 
+## 0.13.3
+
+The board becomes fully self-describing — the last piece of "the board is the single source of truth".
+
+- **`assets/board-readme.template.md`** — the board README template (north star + metrics/anti-goals,
+  milestone map with seed-card links, how-to-read-this-board, working agreements, links). Product language,
+  no tool names.
+- **Wired** (the v0.13 lesson — no prose without wiring): `pm` §3 now fills the template and sets it via the
+  gh-roadmap sub-skill (`roadmap_readme.sh set --file`), keeps it current on re-scope; `card-container.md`
+  gains the "Map (whole board)" layer; a fresh session mirrors the board README as its context
+  (`roadmap_readme.sh cache` → `.claude/.ultraloop-context.md`).
+- **Golden-template 4-view spec made precise** (`golden-template-setup.md`): ① Roadmap — PM·Schedule
+  (Roadmap layout, Start→Target Date bars, group Horizon), ② Dev Board (Board by Status, WIP hint),
+  ③ Build Monitor (**Table grouped by Wave** — Board columns cannot take NUMBER fields), ④ Card Audit
+  (Table: Design-Doc · Stage · E2E-Evidence · Status per row). Fields are already provisioned on the template
+  via `board.sh ensure-fields`; only the views remain a one-time UI step.
+
 ## 0.13.2
 
 Fix release from a full v0.13 wiring audit — the theme of every bug was the same: v0.13 prose/assets existed
