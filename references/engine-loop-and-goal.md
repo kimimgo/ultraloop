@@ -90,6 +90,8 @@ Guard-less Stop/SessionEnd re-entry runs away (past incident: a zero-guard hook 
 
 | Guard | Behavior |
 |---|---|
+| unconfirmed linked worktree (#4) | In a linked worktree without a human drain confirmation, the gate never blocks a stop — blocking would recruit sibling-worktree sessions as silent extra drainers. Main worktree unchanged. |
+| demoted drainer (#3) | This seat once held the drain lease but another drainer now positively holds it fresh → allow stop + notify (a demoted loop must be free to stop) |
 | `config.engine.goal.max_iterations` (default 200) | Cumulative Stop blocks exceed the cap → allow stop + escalation |
 | `config.engine.goal.lock_file` | Concurrency re-entry lock (stale cleanup after 10 min). If locked, allow stop immediately (prevents duplicate gates) |
 | `config.budgets` (loops/tokens/time) | `cost_guard.sh` judges overage → budget-stop (exit 7) → gate allows stop |
@@ -143,3 +145,23 @@ Guard-less Stop/SessionEnd re-entry runs away (past incident: a zero-guard hook 
   into the next milestone's cards. Scope switches between runs need no state surgery:
   a completed (met) run auto-resets on the next tick; after a budget-stop, start the new
   scoped run with `cost_guard.sh --reset` as usual.
+
+---
+
+## 6. Drain gates — who may drain, from where, at which target (v0.14, issues #2 · #3 · #4)
+
+Three failure modes share one root: **drain state living somewhere worktrees/branches can fork** (a branch-committed
+config pointer, per-pwd goal state). The fix is three stacked gates, all enforced deterministically in
+`roadmap_sync.sh` (the script that hands out cards) — the agent honors exit codes, it does not re-judge them:
+
+| Gate | Question | Mechanism | Refusal |
+|---|---|---|---|
+| ① Worktree HITL (#4) | *May this PLACE drain at all?* | `worktree_gate.sh` — linked-worktree detection (`git-dir ≠ git-common-dir`) + per-run confirm token (dies on new run / scope change / `cost_guard.sh --reset`). Forced, independent of `goal.enabled`/`autonomy`. Main worktree: no gate. | exit 4 — prompt the human (context block: scope · board · sibling worktrees · lease holder). Unattended = DENY + approval queue. |
+| ② Scope integrity (#2) | *Is the TARGET unforked?* | `ue_active_milestone` — the pointer's SoT is the board (`Active-Milestone:` line in the north-star issue, pm = single writer); config `goal.scope` is legacy fallback/cache. Board unreachable → degraded to config with a warning. | exit 6 — board ≠ config is a broken run target → reconcile via pm; no drain. |
+| ③ Single-drainer lease (#3) | *Is this the ONLY drainer?* | `drain_lease.sh` — one seat per repo/board at the hidden ref `refs/ultraloop/drain-lease`. Atomic by construction: create-if-absent and fast-forward-renew are server-side CAS (no check-then-set race). Renews every loop ①; TTL (`engine.goal.lease_ttl_minutes`, default 45) reclaims a dead drainer's seat; transient network keeps a recently-renewed seat (grace ≤ TTL). No remote → local ref CAS in the git common dir (still spans all worktrees of the clone). | exit 6 — another loop holds the seat → demote to read-only/wait, loudly (holder info printed). |
+
+Stop-gate counterparts (fail-open, §3 guard table): an **unconfirmed worktree session is never stop-blocked** — the
+old behavior ("not finished — continue /ultraloop loop") recruited sibling worktree sessions as silent extra drainers,
+which is exactly how accidental multi-drainer races started; and a **demoted drainer** (lease positively held fresh by
+another) is allowed to stop. Goal-met stops release the seat automatically; any other run end should call
+`drain_lease.sh release` so the seat frees without waiting out the TTL.

@@ -142,6 +142,12 @@ envelope. The seed-card + milestone-container contract is `${CLAUDE_PLUGIN_ROOT}
 Bulk issue creation must go through `bash ${CLAUDE_PLUGIN_ROOT}/scripts/issue_populate.sh` (idempotent lock — prevents duplicate creation by
 concurrent sessions). Board writes go through `bash ${CLAUDE_PLUGIN_ROOT}/scripts/board.sh` (no hand-written raw graphql).
 
+**Record the active-milestone pointer on the board (#2 — you are its single writer).** Keep exactly one
+`Active-Milestone: <milestone title>` line in the north-star issue body (north-star.md §2.5) — set it at handoff, and advance it
+whenever the run target moves to the next milestone. This pointer is the SoT every worktree resolves; the config
+`engine.goal.scope` is only a legacy fallback and must be kept in agreement (a divergence halts loop's drain gates loudly).
+loop never writes this line — re-pointing the run is a pm re-entry event.
+
 **Write the board README (the whole-board map).** Fill `${CLAUDE_PLUGIN_ROOT}/assets/board-readme.template.md` — north star, milestone map
 with links to the seed cards, how-to-read-this-board, working agreements — in the product's working language (no tool/agent names), then set
 it with the gh-roadmap sub-skill: `roadmap_readme.sh set --file <filled.md>`. This README is what a fresh session mirrors as its context

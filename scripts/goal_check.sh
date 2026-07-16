@@ -27,7 +27,10 @@ fi
 #   Provider-agnostic: the loop closes an issue when its card reaches Done, so open issues
 #   in the milestone == remaining scoped work. Default scope=board keeps full-board
 #   semantics below untouched. The north-star reference issue is never counted.
-MS="$(ue_goal_scope 2>/dev/null || true)"
+#   v0.14 (#2): the pointer resolves board-first (north-star Active-Milestone: line);
+#   a board↔config divergence is a broken run target → conservatively not met, loudly.
+MS="$(ue_active_milestone 2>/dev/null)"; MS_RC=$?
+[ "$MS_RC" -eq 4 ] && fail "scope mismatch: board Active-Milestone=\"$MS\" ≠ config goal.scope — board is SoT; reconcile via pm before draining"
 if [ -n "$MS" ]; then
   command -v gh >/dev/null 2>&1 || fail "milestone scope set but gh unavailable — conservatively not met"
   OPEN="$(gh issue list -R "$REPO" --milestone "$MS" --state open --limit 1000 --json number,labels \

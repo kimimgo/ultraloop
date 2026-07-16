@@ -17,13 +17,14 @@ TICK=1
 case "${1:-}" in
   --no-tick) TICK=0 ;;
   --reset)   # ★ Call when a new run starts — leftover run-start residue makes a new run hit the wall-clock cap from its very first loop.
-    rm -f "$START" "$LOOPS" "$STATE_DIR/heartbeat" "$STATE_DIR"/goal-*.state 2>/dev/null || true
-    ue_log "run state reset (run-start·loop-count·heartbeat·goal state)"; exit 0 ;;
+    #   #4: the worktree drain confirmation is per-run — a new run must re-ask the human.
+    rm -f "$START" "$LOOPS" "$STATE_DIR/heartbeat" "$STATE_DIR"/goal-*.state "$STATE_DIR/worktree-drain-confirm" 2>/dev/null || true
+    ue_log "run state reset (run-start·loop-count·heartbeat·goal state·worktree confirm)"; exit 0 ;;
 esac
 # Auto-reset on full-board completion: if the previous run ended with goal met (STATUS=met), treat this as a new run and self-clean.
 #   budget-stop residue has unclear intent (resume vs new run) so it is not auto-cleaned — for a new run, --reset must come first (loop entry gate).
 if [ "$TICK" = 1 ] && grep -q '^STATUS=met' "$STATE_DIR/goal-$(printf '%s' "$PWD" | cksum | cut -d' ' -f1).state" 2>/dev/null; then
-  rm -f "$START" "$LOOPS" "$STATE_DIR/heartbeat" "$STATE_DIR"/goal-*.state 2>/dev/null || true
+  rm -f "$START" "$LOOPS" "$STATE_DIR/heartbeat" "$STATE_DIR"/goal-*.state "$STATE_DIR/worktree-drain-confirm" 2>/dev/null || true
   ue_log "previous run completed (goal met) detected → run state auto-reset"
 fi
 # Record start time on first call

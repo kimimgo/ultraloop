@@ -2,6 +2,42 @@
 
 All notable changes to ultraloop are documented here. Versioning is [SemVer](https://semver.org/).
 
+## 0.14.0
+
+Issues #2/#3/#4 — the multi-worktree drain races get a layered, deterministic defense. Root cause shared by
+all three: drain state lived where worktrees/branches can fork (a branch-committed scope pointer, per-pwd
+goal state, no board-wide mutual exclusion), so N worktrees could each become an independent drainer of the
+same board. All gates are enforced in `roadmap_sync.sh` — the script that hands out cards — before any board
+read (engine-loop-and-goal.md §6, failure-modes.md FM16).
+
+- **#4 Forced worktree HITL gate (`scripts/worktree_gate.sh`, new).** In a linked git worktree
+  (`git-dir ≠ git-common-dir`), loop never starts draining silently — config-independent
+  (`goal.enabled`/`autonomy` don't matter). `roadmap_sync` exits 4 with a context block (resolved scope ·
+  board · sibling-worktree warning · lease holder); the agent asks the human once per run, `confirm` records
+  a token that dies on a new run (`cost_guard.sh --reset` / goal-met auto-reset) or a scope change.
+  Unattended invocation = default deny + approval queue. Main worktree: unchanged, no prompt.
+  The Stop gate also stops **recruiting** drainers: an unconfirmed worktree session is never stop-blocked —
+  the old "continue the remaining work (/ultraloop loop)" nag in sibling worktree sessions was exactly how
+  accidental extra drainers got born.
+- **#3 Single-drainer lease (`scripts/drain_lease.sh`, new).** One drain seat per repo/board at the hidden
+  ref `refs/ultraloop/drain-lease` — atomic by construction (server-side CAS on ref create/fast-forward; no
+  check-then-set race). Renews every loop ① via `roadmap_sync`; TTL (`engine.goal.lease_ttl_minutes`,
+  default 45) reclaims dead drainers; transient network keeps a recently-renewed seat (grace ≤ TTL). A
+  second loop is demoted loudly (`roadmap_sync` exit 6, holder info printed) instead of racing the same
+  Ready cards. No remote → local-ref CAS in the git common dir (still spans all worktrees of the clone).
+  Goal-met stops release the seat automatically; a demoted drainer is allowed to stop (new stop-gate guard).
+- **#2 Active-milestone pointer SoT moves to the board.** pm keeps one `Active-Milestone: <title>` line in
+  the north-star issue (single writer, north-star.md §2.5); every worktree resolves the pointer from there
+  (`ue_active_milestone`, board-first). config `engine.goal.scope` demotes to legacy fallback + cache — a
+  worktree fork or a `git reset` on main can no longer silently retarget the run: board↔config divergence
+  refuses to drain (`roadmap_sync` exit 6, `goal_check` conservatively not-met, both loud). Board
+  unreachable degrades to config with a warning (pre-0.14 behavior).
+- **Encoding fix baked in:** the marker parse is `LC_ALL=C` — Korean (non-ASCII) milestone titles failed to
+  match under locale-aware sed on a ko_KR host.
+- **Tests:** `tests/drain_gate.bats` (10 cases — real git worktree/`file://`-origin fixtures, stubbed gh):
+  gate detection/token lifecycle, lease acquire/renew/takeover/release across seats and clones, scope
+  resolution + loud mismatch, and `roadmap_sync` enforcement of exits 4/6.
+
 ## 0.13.4
 
 Fix #1 — the /goal Stop gate becomes **plugin-native**. Bootstrap used to inject a *resolved, version-pinned

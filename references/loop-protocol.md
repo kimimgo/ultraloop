@@ -8,6 +8,8 @@ the per-loop workflow is composed dynamically based on issue nature · stack · 
 ```
 [orchestrator]
  ① plan check    board→regenerate PROGRESS view (regen_progress.sh) · refresh progress cache (status.sh --refresh) · roadmap gate (roadmap_sync.sh)
+                — the gate also enforces the three drain gates each pass (worktree HITL exit 4 · scope integrity · single-drainer
+                  lease renew, exit 6 = demoted → no cards this tick; engine-loop-and-goal.md §6)
                 · **board consistency reconcile (meta_sync.sh reconcile — if an issue is closed but its card is not Done, converge idempotently)**
                 · **roadmap-strategy consistency check (every loop)**: do the remaining cards still match the planning
                   gate's outcome-roadmap strategic intent — if drift appears (cards multiplying with no strategic

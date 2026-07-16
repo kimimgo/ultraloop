@@ -75,6 +75,13 @@ engine:
                                   #   "milestone:<title>" = this run ends when THAT milestone is drained
                                   #   (goal gate counts only its issues; Ready pick + deploy marker scope with it —
                                   #   the machine counterpart of per-milestone goals in north-star.md §2)
+                                  # ⚠️ v0.14 (#2): this branch-committed value is a LEGACY FALLBACK + cache. The pointer's
+                                  #   SoT is the board — the `Active-Milestone:` line pm keeps in the north-star issue
+                                  #   (north-star.md §2.5). Board pointer wins; a divergence halts the drain gates loudly.
+    lease_ttl_minutes: 45         # v0.14 (#3): single-drainer lease TTL. One loop per repo/board holds the drain seat
+                                  #   (hidden git ref refs/ultraloop/drain-lease — atomic create/fast-forward); it renews
+                                  #   every loop ① and a dead drainer's seat is reclaimable after this many minutes.
+                                  #   Must exceed the loop tick gap (idle_wakeup_seconds) with margin.
     # ↓ hard guards (infinite-loop prevention — mandatory. Blocks a repeat of the past guard-less Stop-hook incident)
     max_iterations: 200           # cap on how many times the Stop hook may cumulatively block a stop
     max_stall_iterations: 10      # no-progress guard: if the goal_check reason is identical N times in a row (= zero progress),

@@ -37,6 +37,22 @@ North-star contribution: [1 line on why this state transition moves toward the f
 
 A milestone without a goal sentence is unfinished planning. (Write it in the product's working language — per messaging.md, tool names forbidden.)
 
+### 2.5 The active-milestone pointer lives on the board (#2)
+
+"Which milestone is being drained NOW" is mutable run state, so its **only canonical home is the north-star issue**
+(board side — worktree/branch independent), never a branch-committed file. pm keeps exactly one machine-readable line
+in the north-star issue body:
+
+```
+Active-Milestone: <milestone title>
+```
+
+- **Single writer = pm** (advancing the pointer is a scope decision, same rank as a milestone edit — §5). loop only reads it.
+- config `engine.goal.scope` remains as a **legacy fallback + local cache**: used only when the board carries no pointer.
+  When both exist and disagree, every gate fails loud (`scope mismatch`) and the loop must not drain — a worktree fork or
+  a `git reset` on main can revert the config file, but it can no longer silently retarget the run.
+- Resolution order (implemented in `_lib.sh ue_active_milestone`): board pointer → config scope → (board unreachable) config with a degraded-mode warning.
+
 ## 3. Card contribution gate (the filler-card filter)
 
 **Every card body must carry one `Goal-link:` line** — "This card advances [which part] of [the milestone goal]."
@@ -88,4 +104,6 @@ Under `autonomy: card` this section does not apply — loop breeds only bug/edge
   scopes the goal gate, the Ready pick, and the deploy marker to that milestone
   (engine-loop-and-goal.md §Run scope). The verdict question stays a human/agent judgment;
   the scope makes the RUN mechanically end where the milestone ends.
+- v0.14 (#2): that pointer's SoT moved to the board (§2.5 `Active-Milestone:` line in the north-star issue).
+  Writing/advancing it is **pm's authority alone**; loop and every gate resolve it read-only via `ue_active_milestone`.
 - In milestones fallback mode, the north-star issue is excluded from the completion verdict even while open (it is not work).

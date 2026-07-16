@@ -33,14 +33,27 @@ You pace yourself with `/loop` and gate stops with `/goal`, proceeding unattende
    `bash ${CLAUDE_PLUGIN_ROOT}/scripts/bootstrap_repo.sh` **immediately** (idempotent). Bootstrap arms the /goal Stop-hook
    (`assets/hooks/goal-stop-gate.sh`) in `.claude/settings.json` — this is **forced and non-bypassable** (§0 red line). Proceed only on
    success; on failure report clearly and stop (no silent degrade). If the marker exists, confirm the Stop-hook is armed (re-install if missing) and pass.
-2. **Adopt the ultracode posture + arm the dynamic workflow (M8).** At loop start default to **orchestrating substantive work via the
+2. **Drain gates — worktree HITL · scope integrity · single-drainer lease (#2/#3/#4).** `roadmap_sync.sh` enforces all three
+   deterministically before handing out any card; your job is to honor its exit codes, never to route around them:
+   - **exit 4 — linked worktree, human confirmation required (FORCED, config-independent).** You are in a linked git worktree and no
+     valid confirm token exists. Show the printed context block (scope · board · sibling-worktree warning · lease holder) and ask the
+     human **"start draining from THIS worktree, with THIS scope, now?"** via AskUserQuestion. On an explicit YES run
+     `bash ${CLAUDE_PLUGIN_ROOT}/scripts/worktree_gate.sh confirm` and re-run the gate. **Unattended (wakeup/cron, no human reachable) =
+     DEFAULT DENY**: file an approval-queue request + notify, end the tick WITHOUT picking cards. Never call `confirm` on your own.
+   - **exit 6 — drain refused.** Either the scope diverged (board `Active-Milestone:` ≠ config `goal.scope` — escalate to pm to
+     reconcile; the board is SoT) or **another loop holds the single-drainer lease** (holder info is printed — announce it, demote to
+     read-only/wait: you may keep observing, but pick no cards and move no cards; poll or stop). Both are loud by design.
+   - The lease renews itself on every `roadmap_sync.sh` pass (`drain_lease.sh ensure`). When you end a run for any reason other than
+     goal-met (budget-stop, stall, demotion, user interrupt), run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/drain_lease.sh release` so the
+     seat frees immediately instead of waiting out the TTL (goal-met releases automatically in the Stop gate).
+3. **Adopt the ultracode posture + arm the dynamic workflow (M8).** At loop start default to **orchestrating substantive work via the
    Workflow tool** (dynamic workflows) rather than doing it inline by hand — this is the *ultracode posture*, the loop's standing mode
    (API contract `${CLAUDE_PLUGIN_ROOT}/references/workflow-tool-spec.md`). If `config.workflow.orchestrate: true` (default), core stages run as
    **dynamic workflows** (Claude Code Workflow tool) designed per work item — methodology and casting policy in
    `${CLAUDE_PLUGIN_ROOT}/references/dynamic-workflow-design.md`. Lane fan-out calls the shipped script
    `${CLAUDE_PLUGIN_ROOT}/workflows/lane-fanout.workflow.js` (coding lanes = sonnet·xhigh; verification inherits the main session).
    ⚠️ This "Workflow" is the Claude Code multi-agent tool — different from GitHub **built-in workflows** (board side).
-3. **Call dependency skills (no reimplementation).** Board I/O = `gh-roadmap`, Tier1 TDD = `tdd-workflow`, verification/review/deploy = `gstack-*`.
+4. **Call dependency skills (no reimplementation).** Board I/O = `gh-roadmap`, Tier1 TDD = `tdd-workflow`, verification/review/deploy = `gstack-*`.
    Mapping = `${CLAUDE_PLUGIN_ROOT}/references/dependencies.md`. If absent, fall back but state the absence in PROGRESS.
 
 ---
@@ -196,6 +209,9 @@ Precise procedure = `${CLAUDE_PLUGIN_ROOT}/references/loop-protocol.md`. One loo
 - **New-run detection**: if this is the *first* loop of a new mission / newly approved board, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/cost_guard.sh --reset`
   to clean the previous run's counters and goal-state leftovers (full-board-completion leftovers reset automatically, but budget-stop leftovers need a manual --reset —
   otherwise the very first loop hits the wall-clock ceiling). Do not call it when resuming (wakeup) a run already in progress.
+- **Worktree runs are per-run confirmed (#4)**: `--reset` also clears the worktree drain-confirm token, so a new run from a linked
+  worktree ALWAYS re-asks the human (Entry gate 2). The canonical place to run a drainer is the main worktree; a worktree drain is the
+  explicitly-confirmed exception, and only one drainer holds the board lease at a time (#3).
 
 ---
 

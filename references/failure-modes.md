@@ -143,3 +143,17 @@ related skill exists. "Absent" is an expensive claim — check the installation 
 
 > FM11 recurrence (2026-06-19): AskUserQuestion again rejected with `questions ... expected array but provided string` —
 > when option labels/descriptions serialize with corrupted `\u` escapes. On retry, rewriting the text as plain Korean passes.
+
+## FM16 — N worktrees, one board: silent extra drainers race over the same Ready cards ★
+**Symptom**: `/ultraloop:loop` starts (or is recruited) in more than one worktree of the same repo → two loops pick the SAME Ready card
+→ duplicate branches/PRs, In-Progress↔Done stomping. (2026-07-16, onlybit: 6 ows worktrees all sharing one board/scope; goal state is
+per-pwd so each worktree is an independent drainer that knows nothing of the others — and the old Stop gate actively told *any* stopping
+worktree session "continue the remaining work (/ultraloop loop)", recruiting bystanders as silent drainers. Issues #2/#3/#4.)
+**Cause**: drain state lived where worktrees fork — the active-milestone pointer in a branch-committed config file, goal/lock state
+keyed by pwd, and no board-wide mutual exclusion.
+**Countermeasure (v0.14, layered — all enforced in `roadmap_sync.sh` before any card is handed out)**:
+① linked worktree → forced HITL confirmation, config-independent (`worktree_gate.sh`, exit 4; unattended = deny + escalate);
+② active-milestone pointer resolves board-first (`Active-Milestone:` in the north-star issue, pm single-writer) and a board↔config
+divergence refuses to drain (exit 6); ③ one drain seat per repo/board via the atomic hidden-ref lease (`drain_lease.sh`,
+TTL+heartbeat, exit 6 = demote to read-only/wait). Stop gate never blocks stops in unconfirmed worktree sessions (no recruitment)
+and lets a demoted drainer stop. engine-loop-and-goal.md §6.

@@ -6,6 +6,11 @@
 #   human checks direction once AFTER the first slice ships (the first-slice gate), not before anything runs.
 #   exit 5 = transient read failure (API/network) → retry/backoff (do NOT drop into planning mode)
 # ★ The exit 3 vs 5 distinction is critical: one network hiccup must not reset a healthy project.
+# v0.14 drain gates (#2/#3/#4) — this script is what hands out cards, so it is where "may I drain?"
+#   is ENFORCED, deterministically, before any board read:
+#   exit 4 = linked worktree without human confirmation (worktree_gate.sh) → prompt/park, NO cards
+#   exit 6 = drain refused — scope mismatch (board ≠ config) OR the single-drainer lease is held by
+#            another loop (drain_lease.sh) → demote to read-only/wait + loud report, NO cards
 set -uo pipefail
 SDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SDIR/_lib.sh" 2>/dev/null || true
@@ -18,9 +23,23 @@ OWNER="${REPO%%/*}"
 command -v gh >/dev/null 2>&1 || { ue_log "gh missing"; exit 5; }
 gh auth status >/dev/null 2>&1 || { ue_log "gh auth failed (transient?)"; exit 5; }
 
+# ── v0.14 drain gates — order matters: HITL first (#4 — never grab a lease before the human said yes),
+#    then scope integrity (#2), then the single-drainer seat (#3). Each failure is LOUD and hands out no cards.
+WG_OUT="$(bash "$SDIR/worktree_gate.sh" check 2>&1)"; WG=$?   # stdout stays JSON-clean on success
+[ "$WG" -eq 0 ] || { printf '%s\n' "$WG_OUT"; ue_log "worktree gate: human confirmation required before draining"; exit 4; }
+
 # v0.10 run scope (engine.goal.scope=milestone:<title>): Ready collection narrows to that
 # milestone so the loop never picks out-of-scope cards (goal_check enforces the same scope).
-MS="$(ue_goal_scope 2>/dev/null || true)"
+# v0.14 (#2): resolved board-first (north-star Active-Milestone: line) — a board↔config divergence refuses to drain.
+MS="$(ue_active_milestone 2>/dev/null)"; MS_RC=$?
+[ "$MS_RC" -eq 4 ] && { ue_log "scope mismatch: board Active-Milestone=\"$MS\" ≠ config goal.scope — reconcile via pm; refusing to drain"; exit 6; }
+
+LEASE_OUT="$(bash "$SDIR/drain_lease.sh" ensure)"; LR=$?     # holder info surfaces only on refusal
+case "$LR" in
+  0) : ;;
+  6) printf '%s\n' "$LEASE_OUT"; ue_log "single-drainer lease held by another loop → demoted (read-only/wait), no cards"; exit 6 ;;
+  *) ue_log "drain lease unavailable (transient) → retry/backoff"; exit 5 ;;
+esac
 UE_MS_SCOPED=0; UE_MS_ALLOWED=""
 if [ -n "$MS" ]; then
   UE_MS_SCOPED=1

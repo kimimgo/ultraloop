@@ -106,6 +106,52 @@ ue_goal_scope() {  # prints the milestone title, or "" for board scope
   local s; s="$(cfg_get engine.goal.scope board)"
   case "$s" in milestone:*) printf '%s' "${s#milestone:}";; *) : ;; esac
 }
+
+# v0.14 (#2): the active-milestone POINTER's SoT is the board, not the branch-committed config.
+# pm records one `Active-Milestone: <title>` line in the north-star issue body (single writer);
+# every worktree/branch resolves the same pointer from there, so a worktree fork or a main reset
+# cannot silently retarget the run. config engine.goal.scope stays as legacy fallback + cache.
+ue_scope_board() {  # prints the board-side Active-Milestone title. rc 0=found · 1=absent · 2=query failed
+  local repo="${1:-$(ue_repo)}" body
+  [ -n "$repo" ] || return 2
+  command -v gh >/dev/null 2>&1 || return 2
+  body="$(gh issue list -R "$repo" --label north-star --state open --limit 1 --json body -q '.[0].body' 2>/dev/null)" || return 2
+  [ -n "$body" ] || return 1
+  # LC_ALL=C: milestone titles are often non-ASCII (Korean) — locale-aware sed can refuse to match
+  # them (observed on ko_KR.UTF-8); byte-wise matching is encoding-proof for this machine marker.
+  printf '%s\n' "$body" | LC_ALL=C sed -nE 's/^[[:space:]]*Active-Milestone:[[:space:]]*(.+)$/\1/p' | head -1 | LC_ALL=C sed -E 's/[[:space:]]+$//' | grep . || return 1
+}
+
+# ue_active_milestone — resolve the effective run scope with board precedence + divergence detection.
+#   stdout: milestone title ("" = board scope)
+#   rc 0 = resolved · 4 = MISMATCH (board pointer and config scope disagree — caller must fail LOUD, not drain)
+#   Board unreachable → degrade to the config value (pre-#2 behavior) with a stderr warning.
+ue_active_milestone() {
+  local cfg board rc
+  cfg="$(ue_goal_scope 2>/dev/null || true)"
+  board="$(ue_scope_board 2>/dev/null)"; rc=$?
+  case "$rc" in
+    0)
+      if [ -n "$cfg" ] && [ "$cfg" != "$board" ]; then
+        ue_log "SCOPE MISMATCH: board Active-Milestone=\"$board\" vs config goal.scope=\"$cfg\" — board is SoT; reconcile via pm"
+        printf '%s' "$board"; return 4
+      fi
+      printf '%s' "$board"; return 0 ;;
+    1) printf '%s' "$cfg"; return 0 ;;   # no board pointer → legacy config-only path
+    *) [ -n "$cfg" ] && ue_log "board scope query failed → degraded to config goal.scope=\"$cfg\""
+       printf '%s' "$cfg"; return 0 ;;
+  esac
+}
+
+# v0.14 (#4): linked-worktree detection. In the main worktree git-dir == common-dir (.git);
+# in a linked worktree git-dir is <common>/worktrees/<name>. rc 0 = linked worktree.
+ue_is_linked_worktree() {
+  local gd cd
+  gd="$(git rev-parse --absolute-git-dir 2>/dev/null)" || return 1
+  cd="$(git rev-parse --git-common-dir 2>/dev/null)" || return 1
+  case "$cd" in /*) ;; *) cd="$(cd "$cd" 2>/dev/null && pwd)" || return 1 ;; esac
+  [ -n "$gd" ] && [ -n "$cd" ] && [ "$gd" != "$cd" ]
+}
 ue_scope_slug() {  # milestone title → filesystem-safe slug (for scoped markers)
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-' | sed -E 's/-+/-/g; s/^-|-$//g'
 }

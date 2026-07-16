@@ -42,6 +42,16 @@ UE_CFG="$(ue_config_path 2>/dev/null)"
 # --- goal disabled → no gate -------------------------------------------------
 [ "$(cfg_get engine.goal.enabled true)" = "true" ] || allow
 
+# --- guard 0 (#4): unconfirmed linked worktree → no gate ----------------------
+# The gate fires in EVERY session under an ultraloop project — including sibling-worktree sessions
+# (ows etc.) doing unrelated work. Blocking their stop with "continue the remaining work (/ultraloop loop)"
+# actively RECRUITED them as silent extra drainers (the multi-drainer race, issues #3/#4). So: in a linked
+# worktree, gate only a session whose drain was explicitly human-confirmed; otherwise allow the stop.
+# The main worktree is untouched (current behavior).
+if [ -x "$SKILL_DIR/scripts/worktree_gate.sh" ]; then
+  bash "$SKILL_DIR/scripts/worktree_gate.sh" check >/dev/null 2>&1 || allow
+fi
+
 STATE_DIR="$(ue_state_dir)"
 REPO_KEY="$(printf '%s' "$(pwd)" | cksum | cut -d' ' -f1)"
 STATE="$STATE_DIR/goal-$REPO_KEY.state"
@@ -58,6 +68,18 @@ if [ -e "$LOCK" ]; then
 fi
 ( echo $$ > "$LOCK" ) 2>/dev/null || true
 trap 'rm -f "$LOCK" 2>/dev/null || true' EXIT
+
+# --- guard 1.5 (#3): demoted drainer → allow stop -----------------------------
+# Only when this seat once held the single-drainer lease (holder file exists) do we spend a network
+# round-trip; and only a POSITIVE "held fresh by another drainer" (rc 6) demotes — absent/stale/
+# unreachable all keep current behavior (fail-open on ambiguity is the drain side's job, not stop's).
+if [ -f "$STATE_DIR/drain-lease.holder" ] && [ -x "$SKILL_DIR/scripts/drain_lease.sh" ]; then
+  bash "$SKILL_DIR/scripts/drain_lease.sh" status >/dev/null 2>&1
+  if [ "$?" -eq 6 ]; then
+    bash "$SKILL_DIR/scripts/notify.sh" warn "ultraloop demoted" "drain lease is held by another loop → this session stops draining (stop allowed)" >/dev/null 2>&1 || true
+    allow
+  fi
+fi
 
 # --- guard 2: budget (cost_guard). On budget-stop (exit 7), allow stop -------
 if [ -x "$SKILL_DIR/scripts/cost_guard.sh" ]; then
@@ -86,6 +108,10 @@ fi
 
 if [ "$RC" -eq 0 ]; then
   { echo "ITER=$ITER"; echo "STATUS=met"; echo "LAST_REASON=goal met"; } > "$STATE" 2>/dev/null || true
+  # #3: the run is over — give the single-drainer seat back so the next run/worktree can take it.
+  if [ -f "$STATE_DIR/drain-lease.holder" ] && [ -x "$SKILL_DIR/scripts/drain_lease.sh" ]; then
+    bash "$SKILL_DIR/scripts/drain_lease.sh" release >/dev/null 2>&1 || true
+  fi
   allow
 fi
 
