@@ -98,6 +98,10 @@ PNODE="$(cfg_get roadmap.project_node_id "")"
 TEMPLATE="$(cfg_get roadmap.template_node_id "")"
 if [ -n "$PNODE" ]; then
   echo "  ✓ project_node_id already recorded (idempotent pass): $PNODE"
+  # v0.13.2: ensure ultraloop's own fields exist on the board (Design-Doc·Stage·Wave·Priority·Size·
+  # Roadmap-Item·Depends-on·E2E-Evidence) + align Status options (fresh boards ship Todo/In Progress/Done —
+  # without "Ready" the loop picks nothing). Idempotent; gh-roadmap only creates its own 3 fields.
+  bash "$SDIR/board.sh" ensure-fields || echo "  ⚠️ field ensure incomplete — board.sh design/stage/wave writes may fail until fields exist"
 elif [ -n "$GHR_DIR" ]; then
   echo "  · board structure/setup = gh-roadmap authority (references/dependencies.md). Set up next:"
   echo "    1) cp $GHR_DIR/config.example.yaml ./gh-roadmap.config.yaml"
@@ -111,9 +115,10 @@ elif [ -n "$GHR_DIR" ]; then
   echo "    2) bash $GHR_DIR/scripts/roadmap_bootstrap.sh   # board copy/create + N-repo link + fields (Horizon·Target Date)"
   echo "    3) bash $GHR_DIR/scripts/roadmap_view.sh check  # verify views (ROADMAP_LAYOUT), built-in workflows (enabled), fields"
   echo "    4) record the created project_node_id/number in ultraloop.config.yaml (roadmap.*) (idempotency key)"
+  echo "    5) bash \$CLAUDE_PLUGIN_ROOT/scripts/board.sh ensure-fields  # ultraloop fields (Design-Doc·Stage·Wave·…) + Status options (Ready·E2E·…)"
 else
   echo "  ✗ gh-roadmap missing (★ required dependency) — fallback: create board/fields directly via roadmap-model.md §4 query-then-create"
-  echo "    (assets/project-fields.json: includes Status·Priority·Horizon·Target Date·E2E-Evidence)."
+  echo "    (assets/project-fields.json — full set: Status·Priority·Size·Roadmap-Item·Depends-on·E2E-Evidence·Horizon·Start/Target Date·Design-Doc·Stage·Wave; board.sh ensure-fields creates them)."
   echo "    ⚠️ roadmap layout views and built-in workflows need the golden template (no API creation) — installing gh-roadmap recommended."
 fi
 

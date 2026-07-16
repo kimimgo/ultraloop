@@ -108,10 +108,13 @@ You pace yourself with `/loop` and gate stops with `/goal`, proceeding unattende
 
 This board is shared with other people. **Execute milestones faithfully**, and on every card:
 
-- **Start**: move the card to `In-Progress` and post a start comment (approach/plan, written in the product language) quoting the
-  card's `Goal-link:` line. If there is no link to quote, do not start (north-star.md §4).
+- **Start**: move the card to `In-Progress`, set `Stage` (`board.sh stage <url> Designing` — then `Building` once Red starts), and post a
+  start comment (approach/plan, written in the product language) quoting the card's `Goal-link:` line. If there is no link to quote, do not
+  start (north-star.md §4).
 - **In progress**: leave comments on significant decisions, design choices, blockers, and discovered issues as they happen (no batch write-ups later).
-- **Done**: leave a result comment (what, how, where the evidence is), move to `Done`, and attach the E2E evidence path.
+- **Done**: leave a result comment (what, how, where the evidence is), move to `Done`, attach the E2E evidence path, and record the design doc
+  (`board.sh design <url> <designDocPath>`) + wave (`board.sh wave <url> <n>`) if a lane returned them. (The milestone-fanout integrator does
+  this inside the workflow; on the card-batch path — lane-fanout returns `mergeReady` with `designDocPath` — it is yours at ⑦⑧.)
 - **Per-loop PROGRESS REPORT (M5 — every loop)**: at the end of each loop post a short human-readable report — *what this loop did · what's next* —
   to the active card **and** notify (approval/notify channel), so a person can follow the run loop-by-loop without reading code. This is the
   per-loop human heartbeat — distinct from the machine `PROGRESS.md` view regenerated in §4 ① and from the per-card start/done comments above.

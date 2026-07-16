@@ -2,6 +2,27 @@
 
 All notable changes to ultraloop are documented here. Versioning is [SemVer](https://semver.org/).
 
+## 0.13.2
+
+Fix release from a full v0.13 wiring audit — the theme of every bug was the same: v0.13 prose/assets existed
+but the actual wiring didn't. Three real gaps found and closed:
+
+- **Board fields were never created.** `assets/project-fields.json` (the 12-field board schema incl.
+  `Design-Doc`/`Stage`/`Wave`) was read by NOTHING — gh-roadmap's bootstrap only creates its own 3 fields, so on
+  a fresh board every `board.sh design/stage/wave/evidence` write would fail with "field absent". New:
+  **`board.sh ensure-fields [node-id]`** — creates all missing fields from project-fields.json and is called by
+  `bootstrap_repo.sh` (idempotent; node-id arg lets it target the golden template directly).
+- **Status options were never aligned.** gh-roadmap HAS a Status-alignment step but it is gated on a
+  `status_options` config key ultraloop never sets — so fresh boards kept `Todo/In Progress/Done`, and with
+  `ready_status: Ready` the loop entered but **found 0 Ready cards forever**. `ensure-fields` now aligns Status
+  options (Backlog/Ready/In-Progress/In-Review/E2E/Done/Blocked/Parked) from project-fields.json itself.
+- **`Stage`/`Wave`/`Design-Doc` were defined but never written.** Lanes are worktree-isolated and cannot safely
+  write the board; now lanes return `designDocPath` (schema + prompt), the milestone-fanout **integrator**
+  records design + wave on each merged card, and loop §3 sets `Stage` transitions and records design/wave on
+  the card-batch path. The lane design doc lands with the merge (`docs/design/issue-<n>.html`).
+- Verified live: `ensure-fields` run against the golden template `kimimgo/projects/1` — 11 fields created,
+  Status aligned, second run fully idempotent. Remaining manual step: the 4 views (UI-only) on the template.
+
 ## 0.13.1
 
 Fix: the v0.13.0 first-slice gate was only prose-deep. `loop` announced it no longer waits for whole-board

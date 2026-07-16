@@ -12,6 +12,8 @@
 #   board.sh wave <issue-url> <number>       # shorthand for set <url> Wave <number>
 #   board.sh comment <issue-url> <text>      # post an issue comment (card=container progress mirror)
 #   board.sh item <issue-url>                  # print board item-id (empty output + exit 1 if absent)
+#   board.sh ensure-fields [project-node-id]   # create missing fields from assets/project-fields.json +
+#                                              #   align Status options (idempotent; node-id arg overrides config)
 # exit 0=ok · 1=item absent (item only) · 3=board not configured · 5=API failure
 set -uo pipefail
 SDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -19,6 +21,8 @@ SDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PNODE="$(cfg_get roadmap.project_node_id "")"
 TOKEN_ENV="$(cfg_get roadmap.token_env UE_PROJECT_TOKEN)"
 export GH_TOKEN="${!TOKEN_ENV:-${GH_TOKEN:-}}"
+# ensure-fields may target an explicit node id (e.g. the golden template) without a config present.
+if [ "${1:-}" = "ensure-fields" ] && [ -n "${2:-}" ]; then PNODE="$2"; fi
 [ -n "$PNODE" ] || { ue_log "roadmap.project_node_id not set"; exit 3; }
 gq() { gh api graphql "$@" 2>/tmp/ue_bd.err || { ue_log "graphql failed: $(head -1 /tmp/ue_bd.err)"; exit 5; }; }
 
@@ -96,5 +100,52 @@ design)   set_field "${1:?url}" "Design-Doc" "${2:?doc-url}" ;;
 stage)    set_field "${1:?url}" "Stage" "${2:?option-name}" ;;
 wave)     set_field "${1:?url}" "Wave" "${2:?number}" ;;
 comment)  if gh issue comment "${1:?url}" --body "${2:?text}" >/dev/null; then echo "COMMENT ($1)"; else ue_log "comment failed: $1"; exit 5; fi ;;
+ensure-fields)
+  # v0.13.2: the ONLY reader of assets/project-fields.json — creates missing fields on the board and aligns
+  # Status options (fresh boards ship Todo/In Progress/Done; without "Ready" the loop picks nothing).
+  FJSON="$SDIR/../assets/project-fields.json"
+  [ -f "$FJSON" ] || { ue_log "project-fields.json missing: $FJSON"; exit 5; }
+  MF="$(mktemp)"; trap 'rm -f "$MF"' EXIT
+  gq -f query='query($id:ID!){ node(id:$id){ ... on ProjectV2 { fields(first:50){ nodes{
+      ... on ProjectV2FieldCommon { id name dataType }
+      ... on ProjectV2SingleSelectField { options { name } } } } } } }' -f id="$PNODE" > "$MF"
+  PLAN="$(python3 - "$FJSON" "$MF" <<'PY'
+import json,sys
+want=json.load(open(sys.argv[1]))["fields"]
+have={}
+for f in json.load(open(sys.argv[2]))["data"]["node"]["fields"]["nodes"]:
+    if f and f.get("name"):
+        have[f["name"]]={"id":f.get("id"),"opts":[o["name"] for o in (f.get("options") or [])]}
+cs=["GRAY","BLUE","YELLOW","ORANGE","GREEN","RED","PURPLE","PINK"]
+def og(names): return ",".join('{name:"%s",color:%s,description:""}'%(n,cs[i%len(cs)]) for i,n in enumerate(names))
+for f in want:
+    n=f["name"]; dt=f["dataType"]; opts=f.get("options") or []
+    if n=="Status":
+        h=have.get("Status")
+        if h and opts and h["opts"]!=opts: print("ALIGN\t%s\t%s\x01%s"%(n,h["id"],og(opts)))
+        else: print("SKIP\t%s\t"%n)
+        continue
+    if n in have: print("SKIP\t%s\t"%n); continue
+    if dt=="SINGLE_SELECT": print('CREATE\t%s\tdataType:SINGLE_SELECT,name:"%s",singleSelectOptions:[%s]'%(n,n,og(opts)))
+    else: print('CREATE\t%s\tdataType:%s,name:"%s"'%(n,dt,n))
+PY
+)"
+  FAILED=0
+  while IFS=$'\t' read -r ACT NAME PAYLOAD; do
+    [ -n "$ACT" ] || continue
+    case "$ACT" in
+      SKIP) echo "  = $NAME (exists)";;
+      CREATE)
+        if gh api graphql -f query="mutation(\$p:ID!){ createProjectV2Field(input:{projectId:\$p,$PAYLOAD}){ projectV2Field{ ... on ProjectV2FieldCommon { name } } } }" \
+             -f p="$PNODE" >/dev/null 2>/tmp/ue_bd.err </dev/null; then echo "  ✓ created: $NAME"
+        else echo "  ✗ create failed: $NAME ($(head -c120 /tmp/ue_bd.err))"; FAILED=1; fi ;;
+      ALIGN)
+        FID="${PAYLOAD%%$'\x01'*}"; OPTS="${PAYLOAD#*$'\x01'}"
+        if gh api graphql -f query="mutation(\$f:ID!){ updateProjectV2Field(input:{fieldId:\$f,singleSelectOptions:[$OPTS]}){ projectV2Field{ ... on ProjectV2SingleSelectField { id } } } }" \
+             -f f="$FID" >/dev/null 2>/tmp/ue_bd.err </dev/null; then echo "  ✓ Status options aligned"
+        else echo "  ✗ Status align failed ($(head -c120 /tmp/ue_bd.err))"; FAILED=1; fi ;;
+    esac
+  done <<< "$PLAN"
+  exit "$FAILED" ;;
 *) echo "usage: board.sh add|set|status|evidence|design|stage|wave|comment|item ..."; exit 5 ;;
 esac

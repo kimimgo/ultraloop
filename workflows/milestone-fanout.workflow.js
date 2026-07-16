@@ -59,6 +59,7 @@ const LANE = {
   properties: {
     status: { enum: ['ready', 'failed', 'parked'] },
     branch: { type: 'string' }, pr: { type: 'number' }, evidencePath: { type: 'string' },
+    designDocPath: { type: 'string' }, // repo-relative path of the card's design doc (lands with the merge)
     summary: { type: 'string' }, blockReason: { type: 'string' },
   },
 }
@@ -158,7 +159,7 @@ Goal-link: ${card.goalLink || '(missing — if truly absent on the card, stop an
 Acceptance criteria:\n${card.acceptance}
 ${card.e2e ? `E2E scenario:\n${card.e2e}` : ''}
 Work entirely inside your isolated worktree (it branches from fresh origin/${'{default}'} — prior waves are already merged in). Protocol:
-0. Design → Plan (BEFORE Red, per the design half): first author a concise single self-contained HTML design doc for THIS card's slice — house style (sidebar TOC, semantic Mermaid, one "design intent" note on what was intentionally left out); it describes the SYSTEM being built, never a tool/agent/automation. Save it in the repo (e.g. docs/design/issue-${card.number}.html) and record its path/URL in the card's Design-Doc field. Then write the card's "## Implementation plan": file structure (files touched, one responsibility each), 3-6 right-sized TDD tasks each with a Consumes/Produces interface block, and NO placeholders (every code step shows code). Steps 1-4 below implement THAT plan.
+0. Design → Plan (BEFORE Red, per the design half): first author a concise single self-contained HTML design doc for THIS card's slice — house style (sidebar TOC, semantic Mermaid, one "design intent" note on what was intentionally left out); it describes the SYSTEM being built, never a tool/agent/automation. Save it in your worktree at docs/design/issue-${card.number}.html (it lands with the merge) and return its repo-relative path as designDocPath — do NOT write board fields from inside the worktree; the integrator records it on the card. Then write the card's "## Implementation plan" into the issue body (gh issue edit/comment is fine from here): file structure (files touched, one responsibility each), 3-6 right-sized TDD tasks each with a Consumes/Produces interface block, and NO placeholders (every code step shows code). Steps 1-4 below implement THAT plan.
 1. TDD — failing test first (Red), implement (Green), refactor. Atomic commits; commit/PR text in plain product language, never naming any tool, agent, or automation.
 2. Repo quality gates (format · lint · typecheck · tests + coverage) all green.
 3. Push the branch and open a PR (do NOT merge — merging is serialized by the integrator).
@@ -186,8 +187,8 @@ Try to REFUTE it: inspect the diff read-only, check every acceptance criterion a
   if (verified.length) {
     // ONE integrator agent per wave = merge serialization enforced by structure, not by prompt.
     const integ = await agent(
-      `You are the integrator for repo ${repo}, wave ${wave} of milestone "${ms.title}". Merge these verified lanes ONE AT A TIME, in this order: ${JSON.stringify(verified.map(v => ({ number: v.card, branch: v.lane.branch, pr: v.lane.pr, evidencePath: v.lane.evidencePath })))}.
-For each, sequentially: update the branch onto current origin default if needed (trivial conflicts only — anything non-trivial: skip with reason, do NOT improvise a resolution) → squash-merge the PR → confirm the default branch still builds/tests → move the board card to Done with the E2E evidence path and a short completion comment in plain product language (board writes via ${'`bash "$CLAUDE_PLUGIN_ROOT/scripts/board.sh"`'} status/evidence — never raw graphql). If a merge breaks the default branch, revert it and skip that card with the reason. Report exactly what merged and what was skipped.`,
+      `You are the integrator for repo ${repo}, wave ${wave} of milestone "${ms.title}". Merge these verified lanes ONE AT A TIME, in this order: ${JSON.stringify(verified.map(v => ({ number: v.card, branch: v.lane.branch, pr: v.lane.pr, evidencePath: v.lane.evidencePath, designDocPath: v.lane.designDocPath })))}.
+For each, sequentially: update the branch onto current origin default if needed (trivial conflicts only — anything non-trivial: skip with reason, do NOT improvise a resolution) → squash-merge the PR → confirm the default branch still builds/tests → update the board card (writes via ${'`bash "$CLAUDE_PLUGIN_ROOT/scripts/board.sh"`'} — never raw graphql; issue url = https://github.com/${repo}/issues/<number>): status Done + evidence <evidencePath> + design <designDocPath if present> + wave ${wave}, and a short completion comment in plain product language. If a merge breaks the default branch, revert it and skip that card with the reason. Report exactly what merged and what was skipped.`,
       { label: `integrate:wave${wave}`, phase: 'Waves', model: coding.model, effort: coding.effort, schema: INTEGRATE }
     )
     const okSet = new Set((integ && integ.merged) || [])
