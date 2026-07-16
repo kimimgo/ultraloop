@@ -2,7 +2,7 @@
 # bootstrap_repo.sh — one-time initial repo setup (idempotent). Passes through if already done.
 # What it does: prerequisite probe → labels → board (idempotent query-then-create) → templates/workflows →
 #          main protection (review=0) → Environments (staging auto / production HITL) →
-#          goal Stop hook install (absolute-path substitution) → CLAUDE.md/PROGRESS.md seed → initial commit.
+#          goal Stop gate legacy cleanup (the gate itself ships via hooks/hooks.json) → CLAUDE.md/PROGRESS.md seed → initial commit.
 # Non-deterministic: Projects v2 board/Environments depend on permissions and plan, so *attempt, and on failure report clearly and point to the fallback*.
 set -uo pipefail
 SDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -193,27 +193,34 @@ else
     && echo "  · production env created (no reviewer — hitl.reviewers empty; manual cd.yml approval fallback)" || true
 fi
 
-# ── 6. goal Stop hook install (.claude/settings.json, absolute-path substitution) ─────
+# ── 6. goal Stop gate — plugin-native (hooks/hooks.json, ${CLAUDE_PLUGIN_ROOT}) + legacy cleanup ─────
 echo "[goal stop-hook]"
-# v0.13: the /goal Stop-hook is FORCED (non-bypassable) — installed unconditionally; install_stop_hook is not honored as an off switch.
-  mkdir -p .claude
-  SNIP="$(sed "s#__ULTRALOOP_SKILL_DIR__#$SKILL_DIR#g" "$SKILL_DIR/assets/hooks/settings.snippet.json")"
-  if [ -f .claude/settings.json ] && command -v python3 >/dev/null 2>&1; then
-    python3 - "$SKILL_DIR" <<'PY' 2>/dev/null && echo "  ✓ Stop hook merged" || echo "  · settings.json merge failed — manual addition needed"
-import json,sys,os
-skill=sys.argv[1]
+# v0.13.4 (issue #1): the gate ships with the PLUGIN's own hook registration (hooks/hooks.json →
+# ${CLAUDE_PLUGIN_ROOT}/assets/hooks/goal-stop-gate.sh) — version-independent, auto-follows plugin updates.
+# Bootstrap no longer injects per-repo Stop hooks: the old injection wrote a version-pinned cache absolute
+# path that broke on every update, and its version-pinned dedup could only append — stale/broken entries
+# accumulated. Here we only CLEAN UP those legacy entries, matching version-agnostically on the script name.
+if [ -f .claude/settings.json ] && command -v python3 >/dev/null 2>&1; then
+  python3 - <<'PY' 2>/dev/null || echo "  · legacy cleanup failed — remove goal-stop-gate.sh entries from .claude/settings.json by hand"
+import json
 p=".claude/settings.json"
 d=json.load(open(p))
-d.setdefault("hooks",{}).setdefault("Stop",[])
-cmd=f"bash {skill}/assets/hooks/goal-stop-gate.sh"
-if not any(cmd in json.dumps(x) for x in d["hooks"]["Stop"]):
-    d["hooks"]["Stop"].append({"hooks":[{"type":"command","command":cmd}]})
-json.dump(d,open(p,"w"),ensure_ascii=False,indent=2)
+stops=d.get("hooks",{}).get("Stop",[])
+keep=[x for x in stops if "goal-stop-gate.sh" not in json.dumps(x)]
+removed=len(stops)-len(keep)
+if removed:
+    if keep: d["hooks"]["Stop"]=keep
+    else:
+        d["hooks"].pop("Stop",None)
+        if not d["hooks"]: d.pop("hooks",None)
+    json.dump(d,open(p,"w"),ensure_ascii=False,indent=2)
+print(("  ✓ legacy per-repo Stop-hook entries removed: %d"%removed) if removed else "  ✓ no legacy per-repo Stop-hook entries")
 PY
-  else
-    printf '%s\n' "$SNIP" > .claude/settings.json && echo "  ✓ Stop hook installed (.claude/settings.json)"
-  fi
-  echo "  · guards always ON: max_iterations/lock/budget/dead-man (engine-loop-and-goal §3)"
+else
+  echo "  ✓ no legacy per-repo Stop-hook entries (no settings.json)"
+fi
+echo "  · gate active via the plugin hook (self-guards: allows instantly outside ultraloop projects)"
+echo "  · guards always ON: max_iterations/lock/budget/dead-man (engine-loop-and-goal §3)"
 
 # ── 6.5 ★ worktree optimization (.claude/settings.json worktree.baseRef) ─────
 # Parallel lanes run isolated via isolation:"worktree". Pinning where a lane branches from

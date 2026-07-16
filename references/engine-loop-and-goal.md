@@ -50,10 +50,14 @@ Reproduces the behavioral contract of the built-in `/goal <condition>` exactly:
   - **Not met** → stopping is **blocked**, `iteration` · `last_reason` **accumulate**, the agent keeps working.
 - State (condition · iteration · last_reason) lives in the state file.
 
-### 2-a. Install (done by bootstrap)
+### 2-a. Install (plugin-native — no per-repo injection)
 
-If `config.engine.goal.install_stop_hook: true`, bootstrap registers the following in the target repo's
-`.claude/settings.json` under `hooks.Stop` (see `assets/hooks/settings.snippet.json`):
+The gate ships with the plugin's own hook registration (`hooks/hooks.json`), version-independent via
+`${CLAUDE_PLUGIN_ROOT}` — it auto-follows plugin updates. Bootstrap no longer writes it into the target
+repo's `.claude/settings.json`; it only removes legacy injected entries (the old injection used a
+version-pinned cache path that broke on every update — issue #1). Because the hook is global, the gate
+self-guards: outside an ultraloop project (no `ultraloop.config.yaml` up the tree) it allows immediately.
+The effective registration is:
 
 ```json
 { "hooks": { "Stop": [ { "hooks": [ {

@@ -1,6 +1,6 @@
 {
   "name": "ultraloop",
-  "version": "0.13.3",
+  "version": "0.13.4",
   "description": "Autonomous software-engineering loop for Claude Code: three orchestrator skills over a GitHub Projects v2 board (the single source of truth). ultraloop:pm plans with an insight-first fan-out (opportunity-solution-tree, assumptions, brainstorming, product-strategy, strategy-red-team + pre-mortem, outcome-roadmap, prioritization, speckit) and writes a THIN board — north star + seed cards only, no code. ultraloop:design turns one card into a single self-contained HTML design doc (bundled imgyu-techdoc, published to an artifact host) plus an on-card implementation plan (card-planning). ultraloop:loop is the autonomous engine that drains the board — per card it invokes design, then TDD-builds through parallel waves (milestone-fanout / lane-fanout) and pre-merge production E2E, self-pacing with /loop behind a forced /goal Stop-hook. Skill invocation is explicit and verified — the 1% rule: call mapped sub-skills by name, fire if even 1% relevant, verify it ran, fail loud, never silent-degrade — so the plugin stays lean while orchestration actually fires. gh-roadmap owns board structure as a shared sub-skill; every card is a container (plan · design-doc link · progress · dual-recorded E2E evidence).",
   "author": {
     "name": "kimimgo"

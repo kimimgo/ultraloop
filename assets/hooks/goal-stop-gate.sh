@@ -9,8 +9,13 @@
 #   On anything suspicious — errors, caps, locks — unconditionally **allow stop** (never trap a human in the loop).
 #   *Blocking* a stop happens only when all 4 align: (1) lock passed (2) budget passed (3) iteration under cap (4) goal not met.
 #
-# Install: hooks.Stop in the target repo .claude/settings.json (assets/hooks/settings.snippet.json).
-# Invocation: by absolute path `bash <skill>/assets/hooks/goal-stop-gate.sh` (cwd=repo root, stdin=hook payload).
+# Install (v0.13.4): ships with the PLUGIN's own hook registration — hooks/hooks.json registers this script via
+#   ${CLAUDE_PLUGIN_ROOT} (version-independent, auto-follows plugin updates). No per-repo settings.json injection:
+#   the old bootstrap injection wrote a version-pinned cache path that broke on every update and accumulated
+#   duplicates (issue #1); bootstrap now only CLEANS UP those legacy entries.
+# Because the hook is global, the gate must self-guard: outside an ultraloop project (no ultraloop.config.yaml
+#   found walking up from cwd) it allows immediately — see the guard right below the lib source.
+# Invocation: `bash ${CLAUDE_PLUGIN_ROOT}/assets/hooks/goal-stop-gate.sh` (cwd=session cwd, stdin=hook payload).
 # Output: on block, {"decision":"block","reason":"..."} on stdout · on allow, exit 0 (no output).
 
 set -uo pipefail
@@ -25,6 +30,14 @@ SKILL_DIR="$(cd "$HOOK_DIR/../.." && pwd)"
 allow() { exit 0; }                                  # allow stop (no output)
 block() { printf '{"decision":"block","reason":%s}\n' "$(_json "$1")"; exit 0; }
 _json() { python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$1" 2>/dev/null || printf '"%s"' "$(printf '%s' "$1" | tr -d '"\n')"; }
+
+# --- self-guard: not an ultraloop project → no gate ---------------------------
+# The hook is registered plugin-globally, so it fires on every session stop. Without a config file the
+# cfg_get defaults would make goal_check "not met" and BLOCK stops in arbitrary projects — so the very
+# first check is config presence. ⚠️ ue_config_path never returns empty (it falls back to
+# ./ultraloop.config.yaml even when absent), so the guard must test that the FILE actually exists.
+UE_CFG="$(ue_config_path 2>/dev/null)"
+[ -n "$UE_CFG" ] && [ -f "$UE_CFG" ] || allow
 
 # --- goal disabled → no gate -------------------------------------------------
 [ "$(cfg_get engine.goal.enabled true)" = "true" ] || allow

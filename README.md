@@ -218,8 +218,9 @@ you rarely call it by hand. It probes prerequisites then sets up, skipping anyth
   Milestones + labels without a project-scope token), copy issue/PR/CI templates.
 - **CI/CD · protection** — self-hosted runner check, `main` branch protection, staging (auto) +
   production (HITL) environments.
-- **goal stop-gate (forced)** — install the fail-open Stop hook into the target repo's
-  `.claude/settings.json` **unconditionally** (v0.13: `install_stop_hook` is not an off switch).
+- **goal stop-gate (forced, plugin-native)** — the fail-open Stop hook ships with the plugin's own hook
+  registration (version-independent `${CLAUDE_PLUGIN_ROOT}`); it self-guards outside ultraloop projects,
+  and bootstrap cleans up legacy per-repo injected entries.
 - **Dynamic-workflow casting** — record the casting policy (coding model/effort + `max_subagents`)
   into `.claude/settings.json` as the default for fanned-out subagents.
 - **Board via gh-roadmap golden template** — views and the Roadmap layout can't be created through the

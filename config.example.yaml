@@ -67,7 +67,9 @@ engine:
   #   Unmet → block the stop + accumulate iteration/last_reason + continue. Met → clear (allow the stop).
   goal:
     enabled: true
-    install_stop_hook: true       # v0.13: FORCED — the /goal DoD Stop-hook is non-bypassable (loop treats it as a red line); leave true
+    install_stop_hook: true       # OBSOLETE since v0.13.4 — the gate ships with the plugin's own hook registration
+                                  #   (hooks/hooks.json, version-independent); bootstrap only cleans up legacy per-repo entries.
+                                  #   Kept for backward compat; no code reads it. Runtime disable = engine.goal.enabled.
     condition: "DoD"              # "DoD" = every item of definition-of-done.md. Or a free-form condition string.
     scope: "board"                # run scope: "board" = full-board completion (default) |
                                   #   "milestone:<title>" = this run ends when THAT milestone is drained

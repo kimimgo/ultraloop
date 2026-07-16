@@ -2,6 +2,27 @@
 
 All notable changes to ultraloop are documented here. Versioning is [SemVer](https://semver.org/).
 
+## 0.13.4
+
+Fix #1 — the /goal Stop gate becomes **plugin-native**. Bootstrap used to inject a *resolved, version-pinned
+cache absolute path* into each repo's `.claude/settings.json`, which broke on every plugin update, and its
+version-pinned dedup could only append — so stale/broken Stop hooks accumulated (the reported repo had two,
+one pointing at a directory that no longer exists).
+
+- **Gate registration moved to `hooks/hooks.json`** (`${CLAUDE_PLUGIN_ROOT}/assets/hooks/goal-stop-gate.sh`) —
+  version-independent, auto-follows updates, exactly like the SessionStart hook always did.
+- **New self-guard in `goal-stop-gate.sh`** — the hook now fires on every session stop globally, and the
+  issue's assumption that it already no-ops outside ultraloop projects was NOT true: without a config,
+  `cfg_get` defaults would have made `goal_check` "not met" and **blocked stops in arbitrary projects**.
+  The gate now allows immediately when no `ultraloop.config.yaml` exists up the tree (and the guard tests
+  file existence — `ue_config_path` never returns empty).
+- **Bootstrap §6 now only cleans up** — removes legacy injected Stop-hook entries version-agnostically
+  (matches `goal-stop-gate.sh`, preserves unrelated user hooks); `assets/hooks/settings.snippet.json` removed.
+- `install_stop_hook` is obsolete (kept for compat, nothing reads it); prose reconciled in loop SKILL §0,
+  `engine-loop-and-goal.md §2-a`, README, `config.example.yaml`.
+- Verified live: non-ultraloop dir → instant allow (no output); ultraloop project → correct block JSON;
+  cleanup removes exactly the two stale entries from the report and keeps an unrelated user hook.
+
 ## 0.13.3
 
 The board becomes fully self-describing — the last piece of "the board is the single source of truth".

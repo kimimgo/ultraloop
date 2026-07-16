@@ -53,10 +53,11 @@ You pace yourself with `/loop` and gate stops with `/goal`, proceeding unattende
 - **/goal = stop-blocking gate.** Every time you try to stop with "all done", the Stop hook re-checks the DoD — if unmet, the stop is
   blocked and you continue; if met, clear. Hook = `${CLAUDE_PLUGIN_ROOT}/assets/hooks/goal-stop-gate.sh` (installed into the target repo's
   `.claude/settings.json`).
-  - 🚩 **RED LINE (M8) — the Stop-hook is FORCED at install.** Bootstrap installs and arms `goal-stop-gate.sh` **unconditionally**
-    (`install_stop_hook` is not honored as an off switch), so a run whose Stop-hook is not armed is not a valid loop — never skip or route
-    around the install. The DoD gate then runs on every stop attempt; the one documented runtime disable is `engine.goal.enabled: false`
-    (`engine-loop-and-goal.md §5`) — a deliberate off switch, not a bypass, and not to be set during an autonomous run.
+  - 🚩 **RED LINE (M8) — the Stop-hook is FORCED and plugin-native.** `goal-stop-gate.sh` is registered by the plugin itself
+    (`hooks/hooks.json`, `${CLAUDE_PLUGIN_ROOT}` — version-independent, auto-follows updates; no per-repo injection to skip or break).
+    It self-guards outside ultraloop projects and runs the DoD gate on every stop attempt inside one — never route around it. The one
+    documented runtime disable is `engine.goal.enabled: false` (`engine-loop-and-goal.md §5`) — a deliberate off switch, not a bypass,
+    and not to be set during an autonomous run.
 - ⚠️ **The infinite-loop guards stay on at all times** — `goal.max_iterations`, `budgets` (loops/tokens/time), the dead-man's-switch, and the
   no-progress (stall) guard. An unbounded self-waking loop is the one failure that can't recover itself, so when a ceiling is hit the gate lets the
   stop through and reports the incomplete reason (budget/approval/blocked). The hook is always fail-open (exit 0), and it never spawns a new recursive
