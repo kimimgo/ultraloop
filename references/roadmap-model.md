@@ -27,9 +27,10 @@ the same pattern (`bootstrap_repo.sh`).
 
 ## 5. Precondition gate — roadmap required / planning proposal
 Branch on the `roadmap_sync.sh` exit code:
-- **exit 0 (exists + approved)** → enter the loop. "Approved" is confirmed via the issue label **`roadmap:approved`**
-  (`assets/labels.json`, created by bootstrap). On the milestones fallback path, confirm via the `config.roadmap.approved=true` flag.
-- **exit 3 (no roadmap)** → the loop does **not start → planning proposal mode**. Spec authority = **GitHub Spec Kit** (SKILL §4.1.3):
+- **exit 0 (board has cards)** → enter the loop. **v0.13: the entry gate is board *population*, not a `roadmap:approved` label.**
+  pm hands off a thin board (Ready seed cards); the human checks direction once *after the first slice ships* (the first-slice gate
+  inside loop), not before anything runs. The label may still be used for tracking but no longer gates entry.
+- **exit 3 (board empty/absent)** → the loop does **not start → planning proposal mode**. Spec authority = **GitHub Spec Kit** (SKILL §4.1.3):
   1. **If the repo is new**, `gh repo create` → `bootstrap_repo.sh` (labels, board, `specs/` in place).
   2. Repo recon → **PM strategy stage (mandatory before Spec Kit, pm-skills vendored)**: `product-strategy` (strategy canvas) →
      `outcome-roadmap` (outcome roadmap — the check baseline for every loop) → **`strategy-red-team`** (assumption attack and
@@ -43,8 +44,9 @@ Branch on the `roadmap_sync.sh` exit code:
   4. **Before writing the board**: validate issue priorities and Waves with `prioritization-frameworks` (RICE/ICE etc.). On approval →
      turn tasks into issues with `speckit-taskstoissues` (issue_populate.sh lock→ensure→unlock) → **after writing the board**:
      sweep the whole board once with `gstack-autoplan` (automated CEO/eng/DX review) to catch what is missing and what is excessive →
-     link the board cards + grant the **`roadmap:approved` label** +
-     **snapshot-freeze the acceptance criteria and scenarios** (§9.7 integrity baseline, `e2e-production.md`) → enter.
+     link the board cards +
+     **snapshot-freeze the acceptance criteria and scenarios** (§9.7 integrity baseline, `e2e-production.md`) → hand off to loop
+     (which opens on board population; the human reviews direction after the first slice, not via a pre-approval label).
 - **exit 5 (transient read failure: API/network)** → do **not** go to planning mode; retry/back off (prevents resetting an
   in-progress project to zero — REQ-RM-5). If it fails repeatedly, notify and wait.
 

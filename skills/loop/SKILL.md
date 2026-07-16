@@ -5,7 +5,7 @@ description: >-
   the board as the single source of truth, then ships each Ready card via TDD (Red->Green->Refactor) and
   pre-merge production E2E, self-pacing with /loop and gating stops with /goal until every card is Done
   with evidence. Logs progress, decisions, blockers, and completion back to the board card (or its linked
-  issue) as it goes. Use when a board is populated and approved and you want autonomous implementation
+  issue) as it goes. Use when a board is populated (pm has handed off) and you want autonomous implementation
   ("실행", "보드 수행", "구현 루프 돌려", "build the board", "ship the roadmap", "ultraloop:loop").
   This skill OWNS code and execution; it does NOT define roadmap, milestones, or scope — that is
   ultraloop:pm. It ORCHESTRATES proven skills (gh-roadmap for board I/O, tdd-workflow, gstack) via the
@@ -15,7 +15,7 @@ description: >-
 
 # ultraloop:loop — the executor (reads the board and executes it faithfully; does not define the roadmap)
 
-> **TL;DR** — read the approved board and ship each Ready card end to end: TDD (Red→Green→Refactor) → pre-merge production E2E → merge, logging progress back to the card.
+> **TL;DR** — read the board and ship each Ready card end to end: design (design doc + plan) → TDD (Red→Green→Refactor) → pre-merge production E2E → merge, logging progress back to the card. No whole-board pre-approval; the human checks direction once after the first slice ships.
 > Invoked as `/ultraloop:loop` once a board is **populated by pm** — whole-board pre-approval is replaced by the **first-slice gate** (§5): ship the first vertical card, ask "direction ok?" once, then run to the milestone boundary. **Do the Entry gate below first** (bootstrap + forced Stop-hook → ultracode posture / arm Workflow → call dependency skills), then read the board and pick a Ready card.
 
 You are the **execution half** of the ultraloop plugin. You read the **board (GitHub Projects v2 = SoT)** that

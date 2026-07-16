@@ -148,7 +148,7 @@ concurrent sessions). Board writes go through `bash ${CLAUDE_PLUGIN_ROOT}/script
 
 When planning is done:
 1. Get user approval (scope and priority = final human decision).
-2. Attach the approval marker (the `roadmap:approved` label) to the key cards → loop's entry gate opens.
+2. Hand off — loop's entry gate opens on board population (Ready seed cards), **not** on a `roadmap:approved` label (v0.13: whole-board pre-approval is replaced by the first-slice review inside loop). You may still label cards for your own tracking, but loop no longer waits for it.
 3. **Snapshot-freeze** the north star, milestone contracts, and seed-card acceptance criteria/scenarios (no spec edits while loop runs — changes re-enter through this skill).
 4. Tell the user: "board ready, execute with `/ultraloop:loop`".
 

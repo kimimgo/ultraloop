@@ -2,6 +2,19 @@
 
 All notable changes to ultraloop are documented here. Versioning is [SemVer](https://semver.org/).
 
+## 0.13.1
+
+Fix: the v0.13.0 first-slice gate was only prose-deep. `loop` announced it no longer waits for whole-board
+pre-approval, but the entry gate (`scripts/roadmap_sync.sh`) still hard-required a `roadmap:approved` label on
+the board — so the loop refused to start with *"roadmap:approved not attached yet"*, exactly the pre-approval
+step M5 was meant to remove.
+
+- `roadmap_sync.sh` now gates on **board population** (any Ready/open cards), not on the `roadmap:approved`
+  label, across all three paths (Projects v2, old-gh fallback, milestones fallback). An empty board still routes
+  to planning mode (exit 3); a populated board enters the loop. The label is kept for tracking but no longer gates.
+- Prose brought in line with the code: `pm` (hand-off no longer "grants the approval marker to open the gate"),
+  `loop` (TL;DR + description), `references/roadmap-model.md`, and `config.example.yaml`.
+
 ## 0.13.0
 
 The **card = container** release. Three orchestrators (pm · design · loop) replace two, skill invocation

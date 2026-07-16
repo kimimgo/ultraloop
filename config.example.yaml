@@ -30,8 +30,9 @@ roadmap:
   token_env: UE_PROJECT_TOKEN     # env name to read the board token from (falls back to gh default if unset).
   ready_status: "Ready"           # Status option name meaning "ready to start". ⚠️ The default GitHub board (Todo/In Progress/Done)
                                   #   has no Ready option → change this to "Todo" or the loop will not pick up work.
-  approved: false                 # approval flag for the milestones fallback path (with provider=github_projects_v2 the
-                                  #   roadmap:approved label decides, so this value is ignored).
+  approved: false                 # v0.13: NOT an entry gate anymore. The loop opens on board population (Ready cards),
+                                  #   and the human checks direction once after the first slice ships — no pre-approval label required.
+                                  #   (kept for backward compat / your own tracking; ignored by the entry gate.)
   # ★ Golden template — views, the Roadmap layout, and built-in workflows cannot be created via the API (verified) → only copyProjectV2 cloning works.
   #   Board structure/setup authority = the gh-roadmap skill. Bootstrap clones this id via gh-roadmap roadmap_bootstrap.sh.
   template_node_id: ""            # node id of your own golden template board (e.g. "PVT_kwHOxxxxxxxxxxxxx" — has the 3 role views

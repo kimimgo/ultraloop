@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # roadmap_sync.sh — roadmap gate + produce the next N Ready issues.
-#   exit 0 = roadmap exists + approved → next Ready issues on stdout (JSON lines)
-#   exit 3 = no roadmap → planning-proposal mode (SKILL §4)
+#   exit 0 = board has cards → next Ready issues on stdout (JSON lines)
+#   exit 3 = board empty/absent → planning-proposal mode (SKILL §4)
+# v0.13: the entry gate no longer requires the roadmap:approved label. pm hands off a thin board and the
+#   human checks direction once AFTER the first slice ships (the first-slice gate), not before anything runs.
 #   exit 5 = transient read failure (API/network) → retry/backoff (do NOT drop into planning mode)
 # ★ The exit 3 vs 5 distinction is critical: one network hiccup must not reset a healthy project.
 set -uo pipefail
@@ -30,9 +32,7 @@ export UE_MS_SCOPED UE_MS_ALLOWED
 # Board not configured — fallback (R2, roadmap-model §6): if provider=milestones, use issues as the roadmap
 if [ -z "$PROJ" ]; then
   if [ "$(cfg_get roadmap.provider github_projects_v2)" = "milestones" ]; then
-    if [ "$(cfg_get roadmap.approved false)" != "true" ]; then
-      ue_log "roadmap not approved (roadmap.approved!=true) → planning proposal"; exit 3
-    fi
+    # v0.13: no roadmap:approved gate here — an empty board (no open issues) is what routes to planning below.
     MSARG=(); [ -n "$MS" ] && MSARG=(--milestone "$MS")
     RAW="$(gh issue list -R "$REPO" "${MSARG[@]}" --state open --limit 1000 --json number,title,labels 2>/tmp/ue_rs.err)"; RC=$?
     if [ "$RC" -ne 0 ] || [ -z "$RAW" ]; then ue_log "issue query transient failure → retry"; exit 5; fi
@@ -65,13 +65,9 @@ if ! gh project item-list --help >/dev/null 2>&1; then
     ue_log "board graphql transient failure → retry: $(head -1 /tmp/ue_rs.err 2>/dev/null)"; exit 5
   fi
   FILTER=""; [ "$(cfg_get board.shared false)" = "true" ] && FILTER="$REPO"
-  if [ -n "$FILTER" ]; then APPROVED_OK="$(cfg_get roadmap.approved false)"; else
-    A="$(gh issue list -R "$REPO" --label 'roadmap:approved' --state all --json number -q 'length' 2>/dev/null || echo 0)"
-    APPROVED_OK="false"; [ "${A:-0}" -ge 1 ] && APPROVED_OK="true"
-  fi
   printf '%s' "$RAW" | python3 -c '
 import json,sys
-N=int(sys.argv[1]); FILTER=sys.argv[2]; approved=sys.argv[3]=="true"
+N=int(sys.argv[1]); FILTER=sys.argv[2]
 def _all(raw):
     dec=json.JSONDecoder(); i=0; out=[]; raw=raw.strip()
     while i<len(raw):
@@ -89,17 +85,17 @@ for it in nodes:
     for fv in ((it.get("fieldValues") or {}).get("nodes") or []):
         if fv and (fv.get("field") or {}).get("name")=="Status": status=fv.get("name","")
     items.append({"number":c.get("number"),"title":c.get("title",""),"status":status,"repo":repo})
-if not items or not approved:
-    print(f"EXIT3 items={len(items)} approved={approved}", file=sys.stderr); sys.exit(3)
-ready=sys.argv[4].lower()
+if not items:
+    print(f"EXIT3 items={len(items)} (board empty)", file=sys.stderr); sys.exit(3)
+ready=sys.argv[3].lower()
 import os
 scoped=os.environ.get("UE_MS_SCOPED")=="1"
 allowed=set(x for x in os.environ.get("UE_MS_ALLOWED","").split(",") if x)
 def in_scope(i): return (not scoped) or (str(i.get("number")) in allowed)
 for it in [i for i in items if i["status"].lower()==ready and in_scope(i)][:N]:
     print(json.dumps(it, ensure_ascii=False))
-' "$N" "$FILTER" "$APPROVED_OK" "$READY"
-  RC=$?; [ "$RC" = 3 ] && { ue_log "roadmap empty or not approved → planning proposal"; exit 3; }
+' "$N" "$FILTER" "$READY"
+  RC=$?; [ "$RC" = 3 ] && { ue_log "board empty → planning proposal"; exit 3; }
   exit "$RC"
 fi
 
@@ -114,15 +110,15 @@ if [ "$RC" -ne 0 ] || [ -z "$RAW" ]; then
   ue_log "board query transient failure → retry recommended: $(head -1 /tmp/ue_rs.err 2>/dev/null)"; exit 5
 fi
 
-# Approval marker: roadmap:approved label (assets/labels.json, created by bootstrap). Absent means not started → planning proposal.
-APPROVED="$(gh issue list -R "$REPO" --label 'roadmap:approved' --state all --json number -q 'length' 2>/dev/null || echo 0)"
+# v0.13: gate on board population, not on the roadmap:approved label. An empty board → planning proposal;
+# a board with cards → enter the loop (the human checks direction once after the first slice ships).
 COUNT="$(printf '%s' "$RAW" | python3 -c 'import json,sys
 try:
  d=json.load(sys.stdin); items=d.get("items",d if isinstance(d,list) else []); print(len(items))
 except Exception: print("ERR")' 2>/dev/null)"
 [ "$COUNT" = "ERR" ] && { ue_log "board parse failed"; exit 5; }
-if [ "${COUNT:-0}" -lt 1 ] || [ "${APPROVED:-0}" -lt 1 ]; then
-  ue_log "roadmap empty or not approved (items=$COUNT approved=$APPROVED) → planning proposal"; exit 3
+if [ "${COUNT:-0}" -lt 1 ]; then
+  ue_log "board empty (items=$COUNT) → planning proposal"; exit 3
 fi
 
 # Next N Ready issues to stdout (JSON lines). Depends-on/module conflicts are the orchestrator final call.
