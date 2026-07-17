@@ -25,9 +25,12 @@ roadmap:
   provider: github_projects_v2    # github_projects_v2 | milestones (fallback, R2)
   project_node_id: ""             # bootstrap records this automatically after query-then-create (idempotent). Do not touch.
   project_number: ""              # 〃 (the human-visible number)
-  # A project-scope PAT/App is needed — the default GITHUB_TOKEN cannot automate the board (REQ-CI-3).
-  #   gh auth: PAT with the 'project' scope. Inject via env GH_TOKEN or UE_PROJECT_TOKEN.
-  token_env: UE_PROJECT_TOKEN     # env name to read the board token from (falls back to gh default if unset).
+  # The `project` SCOPE is what's needed — not an env var per se (the default GITHUB_TOKEN cannot
+  #   automate the board, REQ-CI-3). Two equally valid ways, checked as CAPABILITY by config_check:
+  #   ① interactive hosts: `gh auth refresh -h github.com -s project` — gh's own keyring token gains the
+  #      scope; NO env var needed (runtime falls back to gh's auth when the env is unset/empty).
+  #   ② CI/unattended: inject a project-scope PAT via env GH_TOKEN or UE_PROJECT_TOKEN.
+  token_env: UE_PROJECT_TOKEN     # env name to read the board token from (falls back to gh keyring auth if unset).
   ready_status: "Ready"           # Status option name meaning "ready to start". ⚠️ The default GitHub board (Todo/In Progress/Done)
                                   #   has no Ready option → change this to "Todo" or the loop will not pick up work.
   approved: false                 # v0.13: NOT an entry gate anymore. The loop opens on board population (Ready cards),
@@ -144,6 +147,10 @@ e2e:
   secrets_file: ".env.e2e"        # credential injection source (no plaintext commits; discarded at teardown)
 
 # ── Parallel lanes (worktree) ────────────────────────────────────────────────
+#  NOTE (#5): long-lived WORKSTREAM worktrees (e.g. .worktrees/chat — one pm+loop pair each) are a
+#  different thing from the transient TDD lanes below. A workstream worktree derives its lane name
+#  from its DIRECTORY NAME, drains only cards labeled ws:<name>, and holds its own drain seat —
+#  zero config here; pm assigns the labels (engine-loop-and-goal.md §6.1).
 worktree:
   max_lanes: 4                    # concurrent lane count per wave (v0.13: default 2 -> 4; fan out only module-non-conflicting issues)
   root: "../.ue-worktrees"        # lane worktree root

@@ -112,10 +112,20 @@ ue_goal_scope() {  # prints the milestone title, or "" for board scope
 # every worktree/branch resolves the same pointer from there, so a worktree fork or a main reset
 # cannot silently retarget the run. config engine.goal.scope stays as legacy fallback + cache.
 ue_scope_board() {  # prints the board-side Active-Milestone title. rc 0=found · 1=absent · 2=query failed
-  local repo="${1:-$(ue_repo)}" body
+  # v0.15 (#5): lane-aware — a lane resolves ITS OWN north-star issue (north-star + ws:<lane> labels).
+  # The whole-board resolver only applies when the repo has exactly ONE north star (single-workstream
+  # legacy); with per-workstream stars a repo-wide singular pointer is undefined → absent (config fallback).
+  local repo="${1:-$(ue_repo)}" body lane
   [ -n "$repo" ] || return 2
   command -v gh >/dev/null 2>&1 || return 2
-  body="$(gh issue list -R "$repo" --label north-star --state open --limit 1 --json body -q '.[0].body' 2>/dev/null)" || return 2
+  lane="$(ue_lane)"
+  if [ -n "$lane" ]; then
+    body="$(gh issue list -R "$repo" --label north-star --label "ws:$lane" --state open --limit 1 --json body -q '.[0].body' 2>/dev/null)" || return 2
+  else
+    local cnt; cnt="$(gh issue list -R "$repo" --label north-star --state open --limit 20 --json number -q 'length' 2>/dev/null)" || return 2
+    [ "$cnt" = "1" ] || return 1
+    body="$(gh issue list -R "$repo" --label north-star --state open --limit 1 --json body -q '.[0].body' 2>/dev/null)" || return 2
+  fi
   [ -n "$body" ] || return 1
   # LC_ALL=C: milestone titles are often non-ASCII (Korean) — locale-aware sed can refuse to match
   # them (observed on ko_KR.UTF-8); byte-wise matching is encoding-proof for this machine marker.
@@ -151,6 +161,15 @@ ue_is_linked_worktree() {
   cd="$(git rev-parse --git-common-dir 2>/dev/null)" || return 1
   case "$cd" in /*) ;; *) cd="$(cd "$cd" 2>/dev/null && pwd)" || return 1 ;; esac
   [ -n "$gd" ] && [ -n "$cd" ] && [ "$gd" != "$cd" ]
+}
+
+# v0.15 (#5): workstream lane — PARTITION over lock. A linked worktree IS a lane; the lane name
+# derives from the worktree directory basename (.worktrees/chat → "chat"), zero-config — pm uses
+# the same name in card labels (ws:<lane>). Main worktree = "" = whole-board drainer.
+ue_lane() {
+  ue_is_linked_worktree || { printf ''; return 0; }
+  local top; top="$(git rev-parse --show-toplevel 2>/dev/null)" || { printf ''; return 0; }
+  basename "$top" | tr -cd 'A-Za-z0-9._-'
 }
 ue_scope_slug() {  # milestone title → filesystem-safe slug (for scoped markers)
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-' | sed -E 's/-+/-/g; s/^-|-$//g'

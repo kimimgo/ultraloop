@@ -148,6 +148,15 @@ whenever the run target moves to the next milestone. This pointer is the SoT eve
 `engine.goal.scope` is only a legacy fallback and must be kept in agreement (a divergence halts loop's drain gates loudly).
 loop never writes this line — re-pointing the run is a pm re-entry event.
 
+**Workstream repos: assign every card to its lane (#5 — like an assignee).** When the product runs as parallel
+workstreams (long-lived worktrees, e.g. `.worktrees/chat`), you are the partitioner:
+- Label every card `ws:<lane>` at creation (create the label once per workstream). A lane's loop picks ONLY its own
+  cards; an unlabeled card is invisible to every lane (only a whole-board drainer would pick it) — an unassigned card
+  is a planning bug, not a shared card.
+- **One north-star issue per workstream** — labeled `north-star` + `ws:<lane>` — and each lane's `Active-Milestone:`
+  pointer lives in ITS OWN north-star issue (the repo-wide singular pointer applies only to single-workstream repos).
+- Lane names must equal the worktree directory names — that is how a lane identifies itself (zero-config derivation).
+
 **Write the board README (the whole-board map).** Fill `${CLAUDE_PLUGIN_ROOT}/assets/board-readme.template.md` — north star, milestone map
 with links to the seed cards, how-to-read-this-board, working agreements — in the product's working language (no tool/agent names), then set
 it with the gh-roadmap sub-skill: `roadmap_readme.sh set --file <filled.md>`. This README is what a fresh session mirrors as its context

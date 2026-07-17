@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# drain_lease.sh — single-active-drainer lease per repo/board (#3).
+# drain_lease.sh — single-active-drainer lease per SEAT (#3, lane seats since #5).
+#   Seat = whole board (root ref, main worktree) or one workstream lane (child ref, lane worktree).
+#   Different lanes drain in parallel; same seat stays single-drainer; root ⟂ lanes (hierarchy).
 #
 # Problem: N worktrees (or clones) can each start /ultraloop:loop against the SAME board and race
 # over the same Ready cards. This script gives the board ONE drainer seat, atomically:
@@ -25,7 +27,13 @@ set -uo pipefail
 SDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SDIR/_lib.sh" 2>/dev/null || { echo "lib missing" >&2; exit 5; }
 
-REF="refs/ultraloop/drain-lease"
+# v0.15 (#5): lane seats — a lane worktree takes its OWN seat (refs/.../drain-lease/<lane>), so loops
+# on DIFFERENT lanes drain in parallel (cards are partitioned by ws:<lane> labels — no race by
+# construction). The root seat (whole-board drainer, main worktree) and lane seats mutually exclude
+# each other (hierarchical): root acquire fails while any fresh lane seat exists, and vice versa.
+ROOT_REF="refs/ultraloop/drain-lease"
+LANE="$(ue_lane 2>/dev/null || true)"
+REF="$ROOT_REF"; [ -n "$LANE" ] && REF="$ROOT_REF/$LANE"
 REMOTE="${ULTRALOOP_LEASE_REMOTE:-origin}"
 STATE_DIR="$(ue_state_dir)"
 HOLDER_FILE="$STATE_DIR/drain-lease.holder"
@@ -47,8 +55,8 @@ payload() {  # $1=holder $2=verb — one JSON line (machine record; hidden-ref o
   local wt scope
   wt="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
   scope="$(ue_goal_scope 2>/dev/null || true)"
-  printf '{"holder":"%s","host":"%s","worktree":"%s","scope":"%s","%s":%s}' \
-    "$1" "$(hostname 2>/dev/null || echo '?')" "$wt" "$scope" "$2" "$NOW"
+  printf '{"holder":"%s","host":"%s","worktree":"%s","lane":"%s","scope":"%s","%s":%s}' \
+    "$1" "$(hostname 2>/dev/null || echo '?')" "$wt" "$LANE" "$scope" "$2" "$NOW"
 }
 mk_commit() {  # $1=msg [$2=parent] → sha
   local tree; tree="$(git hash-object -t tree /dev/null)"
@@ -98,6 +106,69 @@ verify_mine() {  # after a write, confirm the ref really points at $1 (closes th
 
 age_min() { printf '%s' $(( (NOW - ${G_TS:-0}) / 60 )); }
 is_mine() { case "$G_MSG" in *"\"holder\":\"$1\""*) return 0;; *) return 1;; esac; }
+
+# ── hierarchical exclusion (#5): root seat ⟂ every lane seat ─────────────────
+conflicting_refs() {  # "sha refname" lines of seats that exclude MY seat · rc 5 = unreachable
+  if [ -n "$LANE" ]; then
+    # my seat is a lane → only the EXACT root ref excludes me (sibling lanes are legitimate parallel).
+    # ⚠️ local mode must use an exact lookup — for-each-ref's prefix matching on "$ROOT_REF" would
+    # also list sibling lane refs and wrongly block lane-parallel drains.
+    if have_remote; then timeout 20 git ls-remote "$REMOTE" "$ROOT_REF" 2>/dev/null || return 5
+    else
+      local s; s="$(git rev-parse -q --verify "$ROOT_REF" 2>/dev/null || true)"
+      [ -n "$s" ] && printf '%s %s\n' "$s" "$ROOT_REF"
+      return 0
+    fi
+  else
+    # my seat is the root (whole board) → every lane seat excludes me
+    if have_remote; then timeout 20 git ls-remote "$REMOTE" "$ROOT_REF/*" 2>/dev/null || return 5
+    else git for-each-ref --format='%(objectname) %(refname)' "$ROOT_REF/*" 2>/dev/null; fi
+  fi
+}
+ref_ts() {  # $1=sha → committer epoch (fetches the object if needed) · empty on failure
+  if ! git cat-file -e "$1" 2>/dev/null && have_remote; then
+    timeout 30 git fetch --no-tags --quiet "$REMOTE" "$2" 2>/dev/null || true
+  fi
+  git log -1 --format=%ct "$1" 2>/dev/null || true
+}
+chk_conflicts() {  # rc 0=clear (stale conflicts reaped) · 6=fresh conflict (info printed) · 5=unreachable
+  local lines sha ref ts
+  lines="$(conflicting_refs)" || return 5
+  [ -n "$lines" ] || return 0
+  while IFS=$'\t ' read -r sha ref; do
+    [ -n "$sha" ] || continue
+    ts="$(ref_ts "$sha" "$ref")"
+    if [ -n "$ts" ] && [ $(( (NOW - ts) / 60 )) -lt "$TTL_MIN" ] 2>/dev/null; then
+      printf 'seat conflict: %s held fresh (%smin ago) · %s\n' "$ref" "$(( (NOW - ts) / 60 ))" "$(git log -1 --format=%B "$sha" 2>/dev/null | head -1)"
+      return 6
+    fi
+    # stale (or unreadable) conflicting seat → reap best-effort so the hierarchy can't wedge on a dead drainer
+    if have_remote; then timeout 30 git push --quiet --no-verify "$REMOTE" ":$ref" >/dev/null 2>&1 || true
+    else git update-ref -d "$ref" "$sha" 2>/dev/null || true; fi
+  done <<EOF
+$lines
+EOF
+  return 0
+}
+post_create_yield() {  # $1=my sha — root↔lane simultaneous-create window: the OLDER seat wins, ties by sha
+  local lines sha ref ts myts
+  lines="$(conflicting_refs)" || return 0        # unreachable → keep seat (TTL bounds the risk)
+  [ -n "$lines" ] || return 0
+  myts="$(git log -1 --format=%ct "$1" 2>/dev/null || echo "$NOW")"
+  while IFS=$'\t ' read -r sha ref; do
+    [ -n "$sha" ] || continue
+    ts="$(ref_ts "$sha" "$ref")"; [ -n "$ts" ] || continue
+    [ $(( (NOW - ts) / 60 )) -lt "$TTL_MIN" ] 2>/dev/null || continue
+    if [ "$ts" -lt "$myts" ] 2>/dev/null || { [ "$ts" -eq "$myts" ] 2>/dev/null && [ "$sha" \< "$1" ]; }; then
+      lease_delete "$1" || true; rm -f "$HOLDER_FILE" 2>/dev/null || true
+      printf 'seat conflict lost (older seat %s) — yielding\n' "$ref"
+      return 6
+    fi
+  done <<EOF
+$lines
+EOF
+  return 0
+}
 info_line() {  # holder info for the agent/human (stdout)
   printf 'lease %s · age %smin · ttl %smin · %s\n' "${1:-held}" "$(age_min)" "$TTL_MIN" "$(printf '%s' "$G_MSG" | head -1)"
 }
@@ -108,16 +179,24 @@ do_acquire() {
   case "$rc" in
     5) ue_log "lease read failed (network/auth?)"; return 5 ;;
     1)
+      chk_conflicts; rc=$?; [ "$rc" -eq 0 ] || return "$rc"       # root⟂lane hierarchy (#5)
       sha="$(mk_commit "$(payload "$H" acquired)")" || return 5
-      if lease_create "$sha" && verify_mine "$sha"; then save_holder "$H" "$sha"; ue_log "drain lease acquired"; return 0; fi
+      if lease_create "$sha" && verify_mine "$sha"; then
+        post_create_yield "$sha" || return 6
+        save_holder "$H" "$sha"; ue_log "drain lease acquired (seat: ${LANE:-board})"; return 0
+      fi
       lease_read || true; info_line "lost create race"; return 6 ;;
     0)
       if is_mine "$H"; then do_renew_ff "$H"; return $?; fi
       if [ "$(age_min)" -ge "$TTL_MIN" ] 2>/dev/null; then
         ue_log "stale lease ($(age_min)min ≥ ${TTL_MIN}min) → takeover"
+        chk_conflicts; rc=$?; [ "$rc" -eq 0 ] || return "$rc"
         lease_delete "$G_SHA" || true
         sha="$(mk_commit "$(payload "$H" acquired)")" || return 5
-        if lease_create "$sha" && verify_mine "$sha"; then save_holder "$H" "$sha"; ue_log "drain lease taken over"; return 0; fi
+        if lease_create "$sha" && verify_mine "$sha"; then
+          post_create_yield "$sha" || return 6
+          save_holder "$H" "$sha"; ue_log "drain lease taken over (seat: ${LANE:-board})"; return 0
+        fi
         lease_read || true; info_line "lost takeover race"; return 6
       fi
       info_line "held by another drainer"; return 6 ;;

@@ -10,7 +10,10 @@ setup() {
   FIX="$BATS_TMPDIR/ue_drain_${BATS_TEST_NUMBER}"
   rm -rf "$FIX"; mkdir -p "$FIX/bin" "$FIX/state-main" "$FIX/state-wt"
 
-  # gh stub: authenticated; north-star query returns an empty body unless a fixture overrides UE_STUB_NS.
+  # gh stub: authenticated; north-star queries are lane-aware —
+  #   ws:<lane> label present → UE_STUB_NS_LANE (that lane's star body)
+  #   count query (-q length) → UE_STUB_NS_COUNT (default: 1 if UE_STUB_NS set, else 0)
+  #   plain body query        → UE_STUB_NS
   cat >"$FIX/bin/gh" <<'STUB'
 #!/usr/bin/env bash
 case "$1 $2" in
@@ -18,6 +21,12 @@ case "$1 $2" in
   "repo view")   exit 1 ;;
 esac
 if [ "$1" = "issue" ] && printf '%s\n' "$@" | grep -q "north-star"; then
+  if printf '%s\n' "$@" | grep -q "^ws:"; then printf '%s' "${UE_STUB_NS_LANE:-}"; exit 0; fi
+  if printf '%s\n' "$@" | grep -q "length"; then
+    if [ -n "${UE_STUB_NS_COUNT:-}" ]; then printf '%s' "$UE_STUB_NS_COUNT"
+    elif [ -n "${UE_STUB_NS:-}" ]; then printf '1'; else printf '0'; fi
+    exit 0
+  fi
   printf '%s' "${UE_STUB_NS:-}"; exit 0
 fi
 exit 0
@@ -85,19 +94,45 @@ teardown() { rm -rf "$FIX"; }
 
 # ── #3 drain lease (no remote → local-ref CAS shared via the git common dir) ─
 
-@test "drain_lease: acquire → second seat is refused (exit 6) → release frees it" {
+@test "drain_lease: acquire → second loop on the SAME seat is refused (exit 6) → release frees it" {
   cd "$FIX/main-repo"
   ULTRALOOP_STATE_DIR="$FIX/state-main" run bash "$SCRIPTS/drain_lease.sh" acquire
   [ "$status" -eq 0 ]
-  cd "$FIX/wt-a"   # sibling worktree = same clone, different seat
+  # second loop on the same (root) seat = different state dir, same worktree
   ULTRALOOP_STATE_DIR="$FIX/state-wt" run bash "$SCRIPTS/drain_lease.sh" ensure
   [ "$status" -eq 6 ]
   [[ "$output" == *"held by another"* ]]
-  cd "$FIX/main-repo"
   ULTRALOOP_STATE_DIR="$FIX/state-main" run bash "$SCRIPTS/drain_lease.sh" release
   [ "$status" -eq 0 ]
   ULTRALOOP_STATE_DIR="$FIX/state-wt" run bash "$SCRIPTS/drain_lease.sh" ensure
   [ "$status" -eq 0 ]
+}
+
+@test "lease lanes (#5): different lanes parallel · same lane exclusive · root ⟂ lanes both ways" {
+  git -C "$FIX/main-repo" worktree add -q "$FIX/wt-b" -b wt-b
+  cp "$FIX/main-repo/ultraloop.config.yaml" "$FIX/wt-b/"
+  mkdir -p "$FIX/st-b" "$FIX/st-a2" "$FIX/st-root"
+  cd "$FIX/wt-a"
+  ULTRALOOP_STATE_DIR="$FIX/state-wt" run bash "$SCRIPTS/drain_lease.sh" acquire
+  [ "$status" -eq 0 ]
+  cd "$FIX/wt-b"
+  ULTRALOOP_STATE_DIR="$FIX/st-b" run bash "$SCRIPTS/drain_lease.sh" acquire
+  [ "$status" -eq 0 ]                                  # different lane → parallel drain OK
+  cd "$FIX/wt-a"
+  ULTRALOOP_STATE_DIR="$FIX/st-a2" run bash "$SCRIPTS/drain_lease.sh" ensure
+  [ "$status" -eq 6 ]                                  # same lane, second loop → demoted
+  cd "$FIX/main-repo"
+  ULTRALOOP_STATE_DIR="$FIX/st-root" run bash "$SCRIPTS/drain_lease.sh" acquire
+  [ "$status" -eq 6 ]                                  # root while lane seats fresh → refused
+  [[ "$output" == *"seat conflict"* ]]
+  cd "$FIX/wt-a"; ULTRALOOP_STATE_DIR="$FIX/state-wt" bash "$SCRIPTS/drain_lease.sh" release
+  cd "$FIX/wt-b"; ULTRALOOP_STATE_DIR="$FIX/st-b" bash "$SCRIPTS/drain_lease.sh" release
+  cd "$FIX/main-repo"
+  ULTRALOOP_STATE_DIR="$FIX/st-root" run bash "$SCRIPTS/drain_lease.sh" acquire
+  [ "$status" -eq 0 ]                                  # lanes released → root seat OK
+  cd "$FIX/wt-a"
+  ULTRALOOP_STATE_DIR="$FIX/state-wt" run bash "$SCRIPTS/drain_lease.sh" acquire
+  [ "$status" -eq 6 ]                                  # lane while root fresh → refused (both ways)
 }
 
 @test "drain_lease: renew keeps the seat; a stale lease (≥TTL) is taken over" {
@@ -159,6 +194,32 @@ YAML
   run ue_active_milestone
   [ "$status" -eq 0 ]
   [ "$output" = "M1 옛것" ]
+}
+
+@test "ue_lane (#5): main worktree → empty, linked worktree → directory basename" {
+  cd "$FIX/main-repo"
+  . "$SCRIPTS/_lib.sh"
+  [ -z "$(ue_lane)" ]
+  cd "$FIX/wt-a"
+  [ "$(ue_lane)" = "wt-a" ]
+}
+
+@test "scope lanes (#5): a lane resolves its OWN star; multi-star repo has no whole-board pointer" {
+  cd "$FIX/wt-a"
+  export ULTRALOOP_CONFIG="$FIX/wt-a/ultraloop.config.yaml"
+  . "$SCRIPTS/_lib.sh"
+  export UE_STUB_NS_LANE='lane star
+Active-Milestone: 채팅 M1
+body'
+  run ue_active_milestone
+  [ "$status" -eq 0 ]
+  [ "$output" = "채팅 M1" ]                            # lane reads ws:<lane> star, Korean title intact
+  cd "$FIX/main-repo"
+  export ULTRALOOP_CONFIG="$FIX/main-repo/ultraloop.config.yaml"
+  export UE_STUB_NS_COUNT=2                            # two workstream stars exist
+  run ue_active_milestone
+  [ "$status" -eq 0 ]
+  [ "$output" = "" ]                                   # whole-board pointer undefined → config fallback (board scope)
 }
 
 # ── integration: roadmap_sync enforces the gates before any board read ───────

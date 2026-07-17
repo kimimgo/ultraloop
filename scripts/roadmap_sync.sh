@@ -48,11 +48,25 @@ if [ -n "$MS" ]; then
 fi
 export UE_MS_SCOPED UE_MS_ALLOWED
 
+# v0.15 (#5): lane partition — a lane worktree picks ONLY its own cards (ws:<lane> label, pm-assigned,
+# like an assignee). Cross-lane races vanish structurally; the whole-board drainer (no lane) is unfiltered.
+LANE="$(ue_lane)"
+UE_WS_SCOPED=0; UE_WS_ALLOWED=""
+if [ -n "$LANE" ]; then
+  UE_WS_SCOPED=1
+  UE_WS_ALLOWED="$(gh issue list -R "$REPO" --label "ws:$LANE" --state open --limit 1000 --json number -q 'map(.number|tostring)|join(",")' 2>/dev/null)"
+  WSN="$( [ -n "$UE_WS_ALLOWED" ] && printf '%s' "$UE_WS_ALLOWED" | awk -F, '{print NF}' || echo 0 )"
+  ue_log "lane scope: ws:$LANE ($WSN open issues)"
+  [ "$WSN" -gt 0 ] 2>/dev/null || ue_log "lane ws:$LANE has no open cards — pm must assign them (ws:$LANE label) before this lane can drain"
+fi
+export UE_WS_SCOPED UE_WS_ALLOWED
+
 # Board not configured — fallback (R2, roadmap-model §6): if provider=milestones, use issues as the roadmap
 if [ -z "$PROJ" ]; then
   if [ "$(cfg_get roadmap.provider github_projects_v2)" = "milestones" ]; then
     # v0.13: no roadmap:approved gate here — an empty board (no open issues) is what routes to planning below.
     MSARG=(); [ -n "$MS" ] && MSARG=(--milestone "$MS")
+    [ -n "$LANE" ] && MSARG+=(--label "ws:$LANE")   # #5 lane partition (fallback path)
     RAW="$(gh issue list -R "$REPO" "${MSARG[@]}" --state open --limit 1000 --json number,title,labels 2>/tmp/ue_rs.err)"; RC=$?
     if [ "$RC" -ne 0 ] || [ -z "$RAW" ]; then ue_log "issue query transient failure → retry"; exit 5; fi
     # Next N Ready issues = open issues without the blocked label (the orchestrator makes the final call)
@@ -110,7 +124,11 @@ ready=sys.argv[3].lower()
 import os
 scoped=os.environ.get("UE_MS_SCOPED")=="1"
 allowed=set(x for x in os.environ.get("UE_MS_ALLOWED","").split(",") if x)
-def in_scope(i): return (not scoped) or (str(i.get("number")) in allowed)
+ws_scoped=os.environ.get("UE_WS_SCOPED")=="1"
+ws_allowed=set(x for x in os.environ.get("UE_WS_ALLOWED","").split(",") if x)
+def in_scope(i):
+    n=str(i.get("number"))
+    return ((not scoped) or n in allowed) and ((not ws_scoped) or n in ws_allowed)
 for it in [i for i in items if i["status"].lower()==ready and in_scope(i)][:N]:
     print(json.dumps(it, ensure_ascii=False))
 ' "$N" "$FILTER" "$READY"
@@ -149,7 +167,11 @@ d=json.load(sys.stdin); items=d.get("items",d if isinstance(d,list) else [])
 import os
 scoped=os.environ.get("UE_MS_SCOPED")=="1"
 allowed=set(x for x in os.environ.get("UE_MS_ALLOWED","").split(",") if x)
-def in_scope(it): return (not scoped) or (str((it.get("content") or {}).get("number")) in allowed)
+ws_scoped=os.environ.get("UE_WS_SCOPED")=="1"
+ws_allowed=set(x for x in os.environ.get("UE_WS_ALLOWED","").split(",") if x)
+def in_scope(it):
+    n=str((it.get("content") or {}).get("number"))
+    return ((not scoped) or n in allowed) and ((not ws_scoped) or n in ws_allowed)
 ready=[it for it in items if str(it.get("status","")).lower()==ready_name and in_scope(it)]
 for it in ready[:N]:
     print(json.dumps({"title":it.get("title",""),"content":it.get("content",{}),"status":it.get("status","")}, ensure_ascii=False))

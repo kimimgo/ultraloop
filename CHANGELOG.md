@@ -2,6 +2,43 @@
 
 All notable changes to ultraloop are documented here. Versioning is [SemVer](https://semver.org/).
 
+## 0.15.0
+
+Issue #5 (owner decision, v0.14 field feedback) — **partition over lock**: repos that legitimately run N parallel
+workstream worktrees (one pm+loop pair each) no longer contend on a single repo-wide drain seat. Ownership
+replaces mutual exclusion between lanes; exclusion survives only where it belongs (within a seat, root ⟂ lanes).
+
+- **Lane identity (zero-config).** A linked worktree IS a lane; the name derives from the worktree directory
+  basename (`.worktrees/chat` → `chat`, `_lib.sh ue_lane`). Main worktree = no lane = whole-board drainer.
+- **pm assigns cards to lanes** — `ws:<lane>` issue label, like an assignee (pm SKILL §3). A lane's
+  `roadmap_sync` picks ONLY its own cards (all three pick paths) and `goal_check` counts only them (lane DoD);
+  an unlabeled card is invisible to every lane — a planning bug, not a shared card.
+- **One north-star issue per workstream** (`north-star` + `ws:<lane>` labels): each lane's `Active-Milestone:`
+  pointer lives in its own star, dissolving the #2 singular-pointer conflict. The repo-wide resolver now
+  applies only when exactly one star exists; multi-star repos fall back to config at whole-board level.
+- **Lease narrows to per-lane seats** (`refs/ultraloop/drain-lease/<lane>`): different lanes drain in parallel;
+  the same lane stays single-drainer (#3's original accident); root and lane seats mutually exclude each other
+  both ways — stale conflicting seats are reaped at acquire, and an older-seat-wins yield closes the
+  simultaneous-create window. Per-lane deploy markers (`prod-deployed-ws-<lane>`) when no milestone scope.
+- **#4 HITL gate kept** (owner re-confirmed): a lane worktree still confirms with the human once per run;
+  the gate's context block now names the lane and its card filter.
+- Tests: 18/18 — lane derivation, lane-parallel/same-lane-exclusive/root⟂lane seating, per-lane star
+  resolution (Korean titles), plus all v0.14 suites unchanged.
+
+## 0.14.1
+
+Fix — the config doctor's token check tested the **mechanism** (env var presence), not the **capability**,
+producing a recurring false alarm: hosts whose `gh` keyring token already carries the `project` scope FAILed
+with "UE_PROJECT_TOKEN/GH_TOKEN env unset" even though board automation actually works there.
+
+- `config_check.sh` §2 now passes on **either** an env PAT **or** a gh keyring token whose scopes include
+  `'project'` (`gh auth status` probe). The failure message names both remedies:
+  `gh auth refresh -h github.com -s project` (interactive hosts) or `export UE_PROJECT_TOKEN=<PAT>` (CI).
+- Verified: runtime calls (`GH_TOKEN="${!TOKEN_ENV:-${GH_TOKEN:-}}" gh ...`) already fall back to gh's own
+  keyring auth when the env is unset/empty — so no runtime change was needed, only the doctor was wrong.
+- `config.example.yaml` token comment rewritten around the scope-not-env-var reality; +2 bats cases
+  (keyring-scope pass · no-capability fail with both remedies).
+
 ## 0.14.0
 
 Issues #2/#3/#4 — the multi-worktree drain races get a layered, deterministic defense. Root cause shared by

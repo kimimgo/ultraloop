@@ -31,24 +31,40 @@ fi
 #   a board↔config divergence is a broken run target → conservatively not met, loudly.
 MS="$(ue_active_milestone 2>/dev/null)"; MS_RC=$?
 [ "$MS_RC" -eq 4 ] && fail "scope mismatch: board Active-Milestone=\"$MS\" ≠ config goal.scope — board is SoT; reconcile via pm before draining"
+# v0.15 (#5): lane partition — a lane worktree's DoD counts only ITS cards (ws:<lane> label).
+LANE="$(ue_lane 2>/dev/null || true)"
+LNARG=(); [ -n "$LANE" ] && LNARG=(--label "ws:$LANE")
 if [ -n "$MS" ]; then
   command -v gh >/dev/null 2>&1 || fail "milestone scope set but gh unavailable — conservatively not met"
-  OPEN="$(gh issue list -R "$REPO" --milestone "$MS" --state open --limit 1000 --json number,labels \
+  OPEN="$(gh issue list -R "$REPO" --milestone "$MS" "${LNARG[@]}" --state open --limit 1000 --json number,labels \
         -q '[.[] | select((.labels | map(.name) | index("north-star")) | not)] | length' 2>/dev/null)"
   case "$OPEN" in
     0) : ;;
     "") fail "milestone scope query failed (milestone \"$MS\" missing? transient?) — conservatively not met" ;;
-    *) fail "milestone \"$MS\": ${OPEN} open issues remaining" ;;
+    *) fail "milestone \"$MS\"${LANE:+ (lane ws:$LANE)}: ${OPEN} open issues remaining" ;;
   esac
-  BLK="$(gh issue list -R "$REPO" --milestone "$MS" --label blocked --state open --json number -q 'length' 2>/dev/null || echo 0)"
-  [ "${BLK:-0}" -gt 0 ] 2>/dev/null && fail "milestone \"$MS\": ${BLK} open blocked issues"
+  BLK="$(gh issue list -R "$REPO" --milestone "$MS" "${LNARG[@]}" --label blocked --state open --json number -q 'length' 2>/dev/null || echo 0)"
+  [ "${BLK:-0}" -gt 0 ] 2>/dev/null && fail "milestone \"$MS\"${LANE:+ (lane ws:$LANE)}: ${BLK} open blocked issues"
+elif [ -n "$LANE" ]; then
+  # lane without a milestone scope: lane DoD = no open ws:<lane> issues left (provider-agnostic — the
+  # loop closes an issue when its card reaches Done; whole-board counting belongs to the root drainer).
+  command -v gh >/dev/null 2>&1 || fail "lane scope set but gh unavailable — conservatively not met"
+  OPEN="$(gh issue list -R "$REPO" "${LNARG[@]}" --state open --limit 1000 --json number,labels \
+        -q '[.[] | select((.labels | map(.name) | index("north-star")) | not)] | length' 2>/dev/null)"
+  case "$OPEN" in
+    0) : ;;
+    "") fail "lane ws:$LANE issue query failed (transient?) — conservatively not met" ;;
+    *) fail "lane ws:$LANE: ${OPEN} open issues remaining" ;;
+  esac
+  BLK="$(gh issue list -R "$REPO" "${LNARG[@]}" --label blocked --state open --json number -q 'length' 2>/dev/null || echo 0)"
+  [ "${BLK:-0}" -gt 0 ] 2>/dev/null && fail "lane ws:$LANE: ${BLK} open blocked issues"
 fi
 
 # 1) Board (scope=board only): not met while non-Done cards remain.
 #    (Requires a project-scope token. On query failure, conservatively not met.)
 TOKEN_ENV="$(cfg_get roadmap.token_env UE_PROJECT_TOKEN)"
 PROJ="$(cfg_get roadmap.project_number "")"
-if [ -z "$MS" ] && [ -n "$PROJ" ] && command -v gh >/dev/null 2>&1; then
+if [ -z "$MS" ] && [ -z "$LANE" ] && [ -n "$PROJ" ] && command -v gh >/dev/null 2>&1; then
   OWNER="${REPO%%/*}"
   # gh project needs ≥2.31 — if an old apt version (2.4.0) shadows it at the front of PATH, fall back to ~/.local/bin/gh
   # (same version-independence as roadmap_sync.sh — if absent, falls through to conservative not-met as before)
@@ -76,7 +92,7 @@ except Exception: print("ERR")' ; } 2>/dev/null )"
     ERR|"") fail "board query failed (possibly transient) — conservatively not met" ;;
     *) fail "board has ${OPEN} non-Done cards remaining" ;;
   esac
-elif [ -z "$MS" ] && [ "$(cfg_get roadmap.provider github_projects_v2)" = "milestones" ] && command -v gh >/dev/null 2>&1; then
+elif [ -z "$MS" ] && [ -z "$LANE" ] && [ "$(cfg_get roadmap.provider github_projects_v2)" = "milestones" ] && command -v gh >/dev/null 2>&1; then
   # Fallback (R2, roadmap-model §6): Projects v2 unavailable → issue-based (issues = work cards).
   #   Equivalent of the board "non-Done card count" = number of open issues. 0 means pass.
   #   The north-star issue is a reference point, not work (north-star.md §5) — not counted even while open.
@@ -87,12 +103,12 @@ elif [ -z "$MS" ] && [ "$(cfg_get roadmap.provider github_projects_v2)" = "miles
     "") fail "issue query failed (possibly transient) — conservatively not met" ;;
     *) fail "${OPEN} open issues remaining (board fallback: all issues must be closed)" ;;
   esac
-elif [ -z "$MS" ]; then
+elif [ -z "$MS" ] && [ -z "$LANE" ]; then
   fail "board/milestones not configured — roadmap sync needed (check roadmap.provider)"
 fi
 
-# 2) Not met while open blocked issues exist (board scope; milestone scope checked its own above).
-if [ -z "$MS" ] && command -v gh >/dev/null 2>&1; then
+# 2) Not met while open blocked issues exist (board scope; milestone/lane scopes checked their own above).
+if [ -z "$MS" ] && [ -z "$LANE" ] && command -v gh >/dev/null 2>&1; then
   BLK="$(gh issue list -R "$REPO" --label blocked --state open --json number -q 'length' 2>/dev/null || echo 0)"
   [ "${BLK:-0}" -gt 0 ] 2>/dev/null && fail "${BLK} open blocked issues"
 fi
@@ -114,6 +130,7 @@ HITL="$(cfg_get hitl.enabled true)"
 if [ "$HITL" = "true" ]; then
   DM="./.ultraloop/prod-deployed"
   [ -n "$MS" ] && DM="./.ultraloop/prod-deployed-$(ue_scope_slug "$MS")"   # per-milestone deploy evidence: a previous milestone deploy must not satisfy this run
+  [ -z "$MS" ] && [ -n "$LANE" ] && DM="./.ultraloop/prod-deployed-ws-$LANE"   # lane run without a milestone: per-lane evidence (#5)
   [ -f "$DM" ] || fail "production HITL deploy incomplete (${DM#./} marker missing)"
 fi
 

@@ -3,7 +3,7 @@
 #   Loud, never silent-proceed (mirrors bootstrap_repo.sh §0 probe): prints ✓/✗/· per check.
 #   exit 0 = every REQUIRED item ok; exit 1 with a one-line reason when a REQUIRED item is
 #   missing; optional items warn only (·). Safe to call advisory from SessionStart.
-#   REQUIRED: config present · roadmap project-scope token env · repo resolved · gh auth ·
+#   REQUIRED: config present · project-scope capability (env PAT or gh keyring scope) · repo resolved · gh auth ·
 #             bootstrap marker · gh-roadmap sub-skill.
 #   OPTIONAL: self-hosted runner (best-effort) · superpowers · vendored pm skills.
 set -uo pipefail
@@ -26,13 +26,21 @@ fi
 echo "  ✓ config: $CFG"
 PROJ="$(cd "$(dirname "$CFG")" && pwd)"
 
-# ── 2. roadmap project-scope token env (REQUIRED — Projects v2 automation needs a project-scope PAT) ──
+# ── 2. project-scope token (REQUIRED — Projects v2 automation needs the `project` SCOPE) ──
+#   Capability check, not mechanism: an env PAT *or* the gh keyring token carrying the 'project'
+#   scope both work. Runtime calls pass GH_TOKEN="${!TOKEN_ENV:-${GH_TOKEN:-}}" through, and gh
+#   treats an EMPTY GH_TOKEN as unset → falls back to its own keyring auth (verified). The old
+#   env-presence check FAILed hosts whose gh already had the scope — a recurring false alarm.
 TOKEN_ENV="$(cfg_get roadmap.token_env UE_PROJECT_TOKEN)"
 if [ -n "${!TOKEN_ENV:-${GH_TOKEN:-}}" ]; then
-  echo "  ✓ project-scope token ($TOKEN_ENV)"
+  echo "  ✓ project-scope token (env $TOKEN_ENV)"
+elif gh auth status 2>&1 | grep -q "'project'"; then
+  echo "  ✓ project-scope token (gh keyring token carries the 'project' scope — no env var needed)"
 else
-  echo "  ✗ project-scope token: env $TOKEN_ENV (and GH_TOKEN) unset — Projects v2 board automation cannot run"
-  req_fail "project-scope token env $TOKEN_ENV unset"
+  echo "  ✗ project-scope token: no env $TOKEN_ENV/GH_TOKEN and gh's own token lacks the 'project' scope"
+  echo "    → either: gh auth refresh -h github.com -s project     (add the scope to gh's keyring token)"
+  echo "    → or:     export $TOKEN_ENV=<PAT with project scope>   (CI/unattended env injection)"
+  req_fail "project-scope capability missing (gh auth refresh -s project, or set $TOKEN_ENV)"
 fi
 
 # ── 3. repo resolved (REQUIRED) ──────────────────────────────────────────────────

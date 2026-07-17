@@ -165,3 +165,21 @@ old behavior ("not finished — continue /ultraloop loop") recruited sibling wor
 which is exactly how accidental multi-drainer races started; and a **demoted drainer** (lease positively held fresh by
 another) is allowed to stop. Goal-met stops release the seat automatically; any other run end should call
 `drain_lease.sh release` so the seat frees without waiting out the TTL.
+
+### 6.1 Workstream lanes — partition over lock (#5)
+
+When a repo runs as **parallel workstreams** (long-lived worktrees, e.g. `.worktrees/{biz,chat,…}`, one pm+loop
+pair each), mutual exclusion is the wrong tool between lanes — ownership is. The lane model:
+
+- **Identity**: a linked worktree IS a lane; its name derives from the worktree directory basename (zero-config,
+  `ue_lane`). The main worktree has no lane = whole-board drainer.
+- **Cards**: pm assigns every card to its lane with a `ws:<lane>` label (like an assignee). A lane's
+  `roadmap_sync`/`goal_check` see only `ws:<lane>` cards — cross-lane card races vanish structurally, and an
+  unassigned card is invisible to every lane (a planning bug, not a shared card).
+- **North stars**: one north-star issue per workstream (`north-star` + `ws:<lane>` labels); each lane's
+  `Active-Milestone:` pointer lives in its own star (north-star.md §2.5).
+- **Seats**: the lease narrows to per-lane refs (`refs/ultraloop/drain-lease/<lane>`). Different lanes drain in
+  parallel; the same lane stays single-drainer (#3's original accident); the root seat (whole-board) and lane
+  seats mutually exclude each other both ways, with stale conflicting seats reaped at acquire and an
+  older-seat-wins yield closing the simultaneous-create window.
+- **#4 HITL unchanged**: a lane worktree still confirms with the human once per run before draining.

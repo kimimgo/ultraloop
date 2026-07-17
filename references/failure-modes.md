@@ -157,3 +157,8 @@ keyed by pwd, and no board-wide mutual exclusion.
 divergence refuses to drain (exit 6); ③ one drain seat per repo/board via the atomic hidden-ref lease (`drain_lease.sh`,
 TTL+heartbeat, exit 6 = demote to read-only/wait). Stop gate never blocks stops in unconfirmed worktree sessions (no recruitment)
 and lets a demoted drainer stop. engine-loop-and-goal.md §6.
+
+> FM16 evolution (v0.15, #5): for repos that legitimately run N parallel workstream worktrees, exclusion moved from
+> "one seat per repo" to **partition + per-lane seats** — pm labels every card `ws:<lane>`, a lane drains only its own
+> cards under its own seat (`refs/ultraloop/drain-lease/<lane>`), and the whole-board seat excludes all lane seats.
+> The FM16 protections stay intact within a seat; what changed is that disjoint lanes no longer contend at all.

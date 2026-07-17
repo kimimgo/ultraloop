@@ -46,6 +46,11 @@ You pace yourself with `/loop` and gate stops with `/goal`, proceeding unattende
    - The lease renews itself on every `roadmap_sync.sh` pass (`drain_lease.sh ensure`). When you end a run for any reason other than
      goal-met (budget-stop, stall, demotion, user interrupt), run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/drain_lease.sh release` so the
      seat frees immediately instead of waiting out the TTL (goal-met releases automatically in the Stop gate).
+   - **Lane partition (#5).** In a workstream worktree (e.g. `.worktrees/chat`) you are the `chat` lane: you see and drain ONLY cards
+     labeled `ws:chat`, your DoD counts only those cards, and your seat is the lane seat — loops on OTHER lanes running in parallel are
+     legitimate, not a conflict. exit 6 therefore means a same-seat conflict (another loop on YOUR lane, or the whole-board drainer
+     holding the root seat), never a different lane. If your lane shows zero open cards, pm has not assigned them (`ws:` label) — that
+     is a planning escalation, not permission to pick unlabeled cards.
 3. **Adopt the ultracode posture + arm the dynamic workflow (M8).** At loop start default to **orchestrating substantive work via the
    Workflow tool** (dynamic workflows) rather than doing it inline by hand — this is the *ultracode posture*, the loop's standing mode
    (API contract `${CLAUDE_PLUGIN_ROOT}/references/workflow-tool-spec.md`). If `config.workflow.orchestrate: true` (default), core stages run as

@@ -56,11 +56,29 @@ YAML
   [[ "$output" == *"repo"* ]]
 }
 
-@test "missing project token env → fail" {
+@test "no token env AND no 'project' scope on gh's own token → fail with both remedies" {
   unset UE_PROJECT_TOKEN
-  run bash "$SCRIPT"
+  run bash "$SCRIPT"                                  # stub `gh auth status` prints no scopes
   [ "$status" -ne 0 ]
   [[ "$output" == *"token"* ]]
+  [[ "$output" == *"gh auth refresh"* ]]
+}
+
+@test "no token env but gh keyring token has the 'project' scope → ok (capability, not mechanism)" {
+  unset UE_PROJECT_TOKEN
+  cat >"$FIX/bin/gh" <<'STUB'
+#!/usr/bin/env bash
+case "$1 $2" in
+  "auth status") echo "  - Token scopes: 'gist', 'project', 'repo'"; exit 0 ;;
+  "repo view")   exit 1 ;;
+esac
+[ "$1" = "api" ] && { echo 1; exit 0; }
+exit 0
+STUB
+  chmod +x "$FIX/bin/gh"
+  run bash "$SCRIPT"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"keyring"* ]]
 }
 
 @test "ok config → exit 0" {

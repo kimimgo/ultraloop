@@ -67,6 +67,7 @@ case "${1:-check}" in
     cat <<EOF
 LINKED WORKTREE — human confirmation REQUIRED before any card is picked (forced, config-independent).
   worktree : $(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  lane     : $(ue_lane) — this loop picks ONLY cards labeled ws:$(ue_lane) (pm-assigned partition, #5)
   repo     : $(ue_repo)
   board    : project #$(cfg_get roadmap.project_number "?") ($(cfg_get roadmap.project_node_id "?"))
   scope    : $(resolved_scope)

@@ -52,6 +52,10 @@ Active-Milestone: <milestone title>
   When both exist and disagree, every gate fails loud (`scope mismatch`) and the loop must not drain — a worktree fork or
   a `git reset` on main can revert the config file, but it can no longer silently retarget the run.
 - Resolution order (implemented in `_lib.sh ue_active_milestone`): board pointer → config scope → (board unreachable) config with a degraded-mode warning.
+- **Workstream repos (#5)**: with parallel workstream lanes there is **one north-star issue per workstream**
+  (labels `north-star` + `ws:<lane>`), and each lane resolves the pointer from its own star. The repo-wide
+  singular resolver applies only when exactly one north-star issue exists (single-workstream legacy); with
+  several stars a whole-board pointer is undefined and resolution falls back to config.
 
 ## 3. Card contribution gate (the filler-card filter)
 
