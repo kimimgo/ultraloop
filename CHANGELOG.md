@@ -2,6 +2,40 @@
 
 All notable changes to ultraloop are documented here. Versioning is [SemVer](https://semver.org/).
 
+## 0.16.0
+
+Issue #6 — **the build methodology becomes a required barrier.** With `tdd-workflow` and the `gstack-*` skills
+retired from the harness, the loop's build stage no longer quietly degrades to a solo fallback. Every coding lane
+is now driven by the **superpowers** skill chain as a required barrier (the same rank as pm's `strategy-red-team`),
+and the *outcome* of test-first work — commit ordering — is machine-checked before merge. A lane subagent's
+Skill-tool calls can't be read downstream, so we force the invocation at the barrier + prompt + schema level and
+verify the artifact (a `test:*` commit before its `feat:`/`fix:*` commit) deterministically — a fabricated
+`skillsInvoked` list can't forge the commit graph.
+
+### Added
+- `scripts/methodology_check.sh` — deterministic TDD-evidence gate. On a lane branch a `test:*` commit must
+  precede the `feat:`/`fix:*` commit it justifies (modes `methodology.tdd_evidence` = enforce | warn | off;
+  exit 5 = order violation, exit 6 = red/green evidence contradiction). Wired into `ship_pr.sh` (new exit 7 =
+  methodology gate failed, no merge), the milestone integrator, and the adversarial verifier.
+- `scripts/_lib.sh` `ue_superpowers_dir` — shared superpowers probe; fixes the doctor false-negative that missed
+  the real `plugins/cache/*/superpowers/*` install layout.
+- Config `methodology:` block — `superpowers: required | optional`, `tdd_evidence: enforce | warn | off`.
+- `references/worktree-strategy.md` §6 — orca + ows as the baseline native-worktree environment (advisory only;
+  no script requires it, so CI/bats pass without it).
+- Tests: `tests/methodology_check.bats` (12), `tests/workflow_contract.bats` (4 — METHODOLOGY-block byte-parity +
+  AsyncFunction syntax check), and +2 `tests/config_check.bats` cases. **Suite: 36/36.**
+
+### Changed
+- Both fan-out lane prompts (`lane-fanout` / `milestone-fanout`) carry a duplicated, byte-parity-checked MANDATORY
+  METHODOLOGY block that invokes the `superpowers:*` chain by exact id (STOP → parked if unavailable); the LANE
+  return now requires a `methodology` evidence object (`skillsInvoked` · `redCommit` · `greenCommit`),
+  cross-examined against the branch by the verifier and the pre-merge gate.
+- `config_check.sh` / `bootstrap_repo.sh` — superpowers flips from OPTIONAL to a REQUIRED barrier (absent → ✗ FAIL
+  unless `methodology.superpowers: optional`); the `tdd-workflow` probe is removed; the gstack lane is demoted to
+  an "optional extra" (superpowers is now primary for review/debug/verification).
+- Docs (`skill-invocation.md`, `dependencies.md` §2 + new §2.5, `tdd-layer.md` §0, `loop/SKILL.md`, `README.md`)
+  describe the barrier and its five enforcement layers.
+
 ## 0.15.0
 
 Issue #5 (owner decision, v0.14 field feedback) — **partition over lock**: repos that legitimately run N parallel

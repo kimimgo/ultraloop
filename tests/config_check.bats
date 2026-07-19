@@ -31,6 +31,12 @@ roadmap:
 YAML
   : >"$FIX/.claude/.ultraloop-bootstrapped"
 
+  # superpowers methodology barrier (v0.16): a fake plugin tree + override keeps the OK baseline
+  # deterministic on CI hosts that do not have superpowers installed.
+  mkdir -p "$FIX/sp/skills/test-driven-development"
+  : >"$FIX/sp/skills/test-driven-development/SKILL.md"
+  export ULTRALOOP_SUPERPOWERS_DIR="$FIX/sp"
+
   export ULTRALOOP_CONFIG="$FIX/ultraloop.config.yaml"
   export UE_PROJECT_TOKEN="dummy-token"
   unset GH_TOKEN
@@ -85,4 +91,29 @@ STUB
   run bash "$SCRIPT"
   [ "$status" -eq 0 ]
   [[ "$output" == *"OK"* ]]
+}
+
+@test "superpowers absent + required (default) → fail with install remedy (v0.16 barrier)" {
+  export ULTRALOOP_SUPERPOWERS_DIR="$FIX/nope"    # invalid override → probe #1 skipped
+  export HOME="$FIX/home"; mkdir -p "$HOME"        # empty HOME defeats the real-host globs (bundled gh-roadmap still resolves)
+  run bash "$SCRIPT"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"superpowers"* ]]
+  [[ "$output" == *"REQUIRED barrier"* ]]
+  [[ "$output" == *"claude plugin install superpowers"* ]]
+}
+
+@test "superpowers absent + methodology.superpowers: optional → ok with a warning line" {
+  cat >"$FIX/ultraloop.config.yaml" <<'YAML'
+repo: owner/app
+roadmap:
+  token_env: UE_PROJECT_TOKEN
+methodology:
+  superpowers: optional
+YAML
+  export ULTRALOOP_SUPERPOWERS_DIR="$FIX/nope"
+  export HOME="$FIX/home"; mkdir -p "$HOME"
+  run bash "$SCRIPT"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"methodology barrier DISABLED"* ]]
 }

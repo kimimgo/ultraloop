@@ -58,3 +58,16 @@ GC at loop start (①). **Removal target = the card is in a terminal state (Done
 Worktree removal (especially uncommitted/unmerged) is §14 high risk → block and confirm (approval queue). `worktree_mgr.sh gc`
 ends with **exit 2 (preserved)** when preservation rules apply, and with **exit 0 (nothing-to-do)** when there was nothing to
 delete in the first place (it never force-deletes).
+
+## 6. Native worktree environment — orca + ows (baseline assumption, not a runtime dependency)
+The baseline environment is orca + git-worktrees, but this is **advisory** — no script requires it.
+
+- **Transient per-card TDD lanes stay raw git — UNCHANGED.** `worktree_mgr.sh create` cuts `../.ue-worktrees/<issue>-<slug>`
+  and the Workflow tool's `isolation:"worktree"` handles per-lane isolation (§0·§3 above). Nothing here changes.
+- **Long-lived workstream lanes** are spawned with the platform-native tools:
+  - `ows wt-spawn <project> <slug> [--kick "<prompt>"]` — creates `.worktrees/<slug>` + branch `wt/<slug>` + a tmux session; OR
+  - `orca-ide worktree create --repo id:<repoId> --name <task> --agent claude --prompt "..." --json`.
+  - Removal: `ows wt-rm <project> <slug>` or `orca-ide worktree rm --worktree id:<repoId>::<path>`.
+- This is where `superpowers:using-git-worktrees`' "platform-native tools preferred" seam resolves.
+- **CRITICAL: no script requires orca/ows.** Availability is only a `·` advisory line in the config doctor; CI/bats pass
+  without it. The transient TDD lanes above never touch orca/ows.

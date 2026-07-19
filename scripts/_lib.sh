@@ -174,3 +174,30 @@ ue_lane() {
 ue_scope_slug() {  # milestone title → filesystem-safe slug (for scoped markers)
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-' | sed -E 's/-+/-/g; s/^-|-$//g'
 }
+
+# v0.16 (#6): superpowers plugin probe — the build-methodology carrier. Prints the superpowers
+# plugin root (the dir that holds skills/); rc 1 if absent. Pure filesystem — no gh, no orca, no
+# network — so the doctor/bootstrap barrier and the bats suite stay deterministic. The load-bearing
+# key file is skills/test-driven-development/SKILL.md (the methodology's core skill).
+ue_superpowers_dir() {
+  local cand hit p
+  # 1) explicit override — tests/CI and non-standard installs
+  cand="${ULTRALOOP_SUPERPOWERS_DIR:-}"
+  if [ -n "$cand" ] && [ -f "$cand/skills/test-driven-development/SKILL.md" ]; then
+    printf '%s' "$cand"; return 0
+  fi
+  # 2) live dev copy of the plugin (mirrors the gh-roadmap local-copy convention)
+  if [ -f "$HOME/.claude/skills/superpowers/skills/test-driven-development/SKILL.md" ]; then
+    printf '%s' "$HOME/.claude/skills/superpowers"; return 0
+  fi
+  # 3) installed layouts — plugins/cache/<marketplace>/superpowers/<hash>/… is the real one on this host.
+  #    compgen -G expands each pattern safely (empty on no-match, no nullglob/nomatch surprises).
+  for p in \
+    "$HOME/.claude/plugins/cache/*/superpowers/*/skills/test-driven-development/SKILL.md" \
+    "$HOME/.claude/plugins/*/superpowers/skills/test-driven-development/SKILL.md" \
+    "$HOME/.claude/plugins/marketplaces/*/superpowers*/skills/test-driven-development/SKILL.md"; do
+    hit="$(compgen -G "$p" 2>/dev/null | head -1)"
+    [ -n "$hit" ] && { printf '%s' "${hit%/skills/test-driven-development/SKILL.md}"; return 0; }
+  done
+  return 1
+}

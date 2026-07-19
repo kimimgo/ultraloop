@@ -20,7 +20,7 @@ ultraloop's orchestrators (pm · design · loop) do NOT rely on a sub-skill auto
 
 - **pm** (planner): discovery = [opportunity-solution-tree · (identify-assumptions → prioritize-assumptions) · brainstorming] IN PARALLEL → product-strategy → north-star lock-in → risk = [strategy-red-team · pre-mortem] IN PARALLEL (red-team is the barrier: no spec entry without passing) → outcome-roadmap → prioritization-frameworks → speckit → **gh-roadmap** (board write). Output = north-star + SEED cards only.
 - **design** (per card): [imgyu-techdoc → artifacts-ops publish] IN PARALLEL WITH [card-planning]; attach design URL to the card's Design-Doc field and the plan to the issue body.
-- **loop** (engine): per Ready card → **design** (invoke) → build [tdd-workflow · superpowers] → parallel waves [milestone-fanout / lane-fanout] → E2E → **gh-roadmap** (status).
+- **loop** (engine): per Ready card → **design** (invoke) → build [superpowers chain — BARRIER] → parallel waves [milestone-fanout / lane-fanout] → E2E → **gh-roadmap** (status).
 
 ## Bundled vs referenced — and the fallback for each absent skill
 
@@ -32,7 +32,7 @@ a silent skip.
 | --- | --- | --- | --- |
 | **pm** | pm-chain, gh-roadmap, opportunity-solution-tree, identify-assumptions, prioritize-assumptions, brainstorming, pre-mortem | product-strategy, strategy-red-team, outcome-roadmap, prioritization-frameworks, speckit | State the gap loudly, then run the built-in inline planning path for that stage — EXCEPT strategy-red-team: it is the barrier, so if absent, STOP (no spec entry without a passing red-team). |
 | **design** | card-planning | imgyu-techdoc, artifacts-ops | State the gap; on imgyu-techdoc absent, author a plain-markdown design doc inline; on artifacts-ops absent, attach the doc to the issue/card directly instead of a published URL, and say so. |
-| **loop** | loop, gh-roadmap, milestone-fanout, lane-fanout, adversarial-verify | design (orchestrator), tdd-workflow, superpowers | State the gap; on tdd-workflow/superpowers absent, fall back to the built-in Red→Green→Refactor path and STATE it; on design absent, block the card and report — a card never ships without a design pass. |
+| **loop** | loop, gh-roadmap, milestone-fanout, lane-fanout, adversarial-verify | design (orchestrator); superpowers:test-driven-development, superpowers:systematic-debugging, superpowers:requesting/receiving-code-review, superpowers:verification-before-completion, superpowers:finishing-a-development-branch | superpowers is a BARRIER like strategy-red-team: absent → STOP (doctor ✗, bootstrap ✗, lane returns parked). No built-in TDD fallback anymore. (design-absent still blocks the card, unchanged.) |
 
 ---
 

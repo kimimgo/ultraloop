@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# ship_pr.sh ["title"] — push → PR → CI watch → ★pre-merge E2E → squash merge on pass.
-#   exit 0 = merged · 1 = CI failed · 6 = E2E failed (no merge)
+# ship_pr.sh ["title"] — push → ★methodology gate → PR → CI watch → ★pre-merge E2E → squash merge on pass.
+#   exit 0 = merged · 1 = CI failed · 6 = E2E failed (no merge) · 7 = methodology gate failed (no merge)
 # ★ E2E is the pre-merge gate. Green CI alone does not merge.
+# ★ methodology_check.sh is the deterministic TDD-evidence gate (v0.16): test:* before feat:/fix:* on
+#   the branch. It self-degrades via config (methodology.tdd_evidence warn|off → exit 0), so legacy
+#   repos are never silently blocked; enforce mode blocks a merge that skipped test-first work.
 set -uo pipefail
 SDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SDIR/_lib.sh" 2>/dev/null || true
@@ -11,6 +14,13 @@ TITLE="${1:-$(git log -1 --pretty=%s 2>/dev/null)}"
 
 git push -u origin "$BR" 2>/dev/null || { ue_log "push failed — check remote access and branch protection, then retry"; exit 1; }
 gh pr view "$BR" >/dev/null 2>&1 || gh pr create -R "$REPO" --base "$DEFB" --head "$BR" --title "$TITLE" --fill 2>/dev/null || true
+
+# ★ methodology evidence gate (pre-merge) — the branch must prove test-first work (v0.16, #6).
+# Self-degrades via config (warn|off → exit 0); enforce mode blocks the merge on a commit-order violation.
+echo "→ methodology evidence gate…"
+if ! bash "$SDIR/methodology_check.sh" "$BR"; then
+  ue_log "methodology evidence gate failed → not merging (test-first commit order — see methodology_check output above)"; exit 7
+fi
 
 # CI watch
 echo "→ CI watch…"

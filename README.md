@@ -123,8 +123,8 @@ specialist skill and falls back to a built-in path if that skill isn't installed
 | **imgyu-techdoc** *(bundled)* | Single-file HTML design-doc house style. `design` authors each card's design doc with it, then publishes to an artifact host and links it from the card's `Design-Doc` field. |
 | **The insight layer** *(bundled, cherry-picked)* | `opportunity-solution-tree` · `identify-assumptions` → `prioritize-assumptions` · `brainstorming` · `pre-mortem` — `pm`'s discovery/risk fan-out, so it delivers a point of view, not just cards. |
 | product-strategy / outcome-roadmap / strategy-red-team / prioritization-frameworks / speckit | The strategy chain — strategy, outcome framing, assumption red-teaming (the barrier), prioritization, spec authoring. |
-| tdd-workflow / superpowers | Test-driven Red → Green → Refactor in the build lanes. |
-| **gstack lane** *(entirely optional)* | If the [gstack](https://github.com/gstackio) skill suite is installed, ultraloop calls it at mapped steps — investigate/qa-only/review in the loop, health/retro at milestone close, canary post-deploy. Every entry degrades to a built-in path; **merge/deploy authority never leaves ultraloop**. No gstack? Nothing breaks. |
+| **superpowers** *(required)* | Per-lane methodology — TDD, debugging, review, verification: a required barrier since v0.16. |
+| **gstack lane** *(optional extra)* | An optional extra alongside the superpowers barrier — never a substitute. If the [gstack](https://github.com/gstackio) skill suite is installed, ultraloop calls it at mapped steps — investigate/qa-only/review in the loop, health/retro at milestone close, canary post-deploy. Every entry degrades to a built-in path; **merge/deploy authority never leaves ultraloop**. No gstack? Nothing breaks. |
 
 **The 1% rule** governs every call: fire the mapped skill if it is even 1% relevant, verify it ran, and fall
 back **loudly, never silently**. Bundled skills are always present; referenced ones fall back to a built-in

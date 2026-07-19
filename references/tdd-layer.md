@@ -1,5 +1,13 @@
 # Dynamic workflow + TDD (Tier 1) — tdd-layer
 
+## 0. Carrier: `superpowers:test-driven-development` (required)
+The Red→Green→Refactor discipline described below is exactly what `superpowers:test-driven-development` enforces per
+lane — since v0.16 it is a REQUIRED barrier, not an optional skill (dependencies.md §2.5). The DETERMINISTIC evidence is
+**commit ordering**: a `test:*` commit must precede the matching `feat:`/`fix:*` commit on the lane branch, machine-checked by
+`scripts/methodology_check.sh` (modes `methodology.tdd_evidence: enforce|warn|off`; **exit 5** = commit-order violation,
+**exit 6** = red/green evidence contradiction). It is wired into `ship_pr.sh` (**exit 7** = no merge), so a lane that skipped
+the test-first order cannot merge.
+
 ## 1. Dynamic composition
 Shape this cycle's workflow to the nature of the issue (non-deterministic):
 - **Bug** → a reproducing failing test first → fix → regression guard.

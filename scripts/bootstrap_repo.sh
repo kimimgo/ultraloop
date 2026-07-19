@@ -43,9 +43,21 @@ for d in "$HOME/.claude/skills/gh-roadmap" "$SKILL_DIR/skills/gh-roadmap" \
 done
 [ -n "$GHR_DIR" ] && echo "  ✓ gh-roadmap (board structure/setup authority): $GHR_DIR" \
   || echo "  ✗ gh-roadmap missing (bundle damaged?) — board views, roadmap, built-in workflow automation unavailable (references/dependencies.md)."
-for s in product-strategy outcome-roadmap strategy-red-team prioritization-frameworks tdd-workflow; do
+for s in product-strategy outcome-roadmap strategy-red-team prioritization-frameworks; do
   [ -d "$HOME/.claude/skills/$s" ] && echo "  ✓ $s" || echo "  · $s missing (fallback: ultraloop performs it directly)"
 done
+# superpowers — REQUIRED build methodology (v0.16 #6). Barrier at bootstrap, consistent with
+# "proceed only on success": absent + methodology.superpowers=required (default) → ✗ exit 1.
+SP_DIR="$(ue_superpowers_dir || true)"
+if [ -n "$SP_DIR" ]; then
+  echo "  ✓ superpowers (build methodology — required barrier): $SP_DIR"
+elif [ "$(cfg_get methodology.superpowers required)" = "optional" ]; then
+  echo "  · superpowers missing — methodology barrier disabled by config (legacy fallback; not recommended)"
+else
+  echo "  ✗ superpowers plugin missing — the build methodology is a REQUIRED barrier."
+  echo "     install: claude plugin install superpowers@claude-plugins-official  (or ULTRALOOP_SUPERPOWERS_DIR=<dir>, or set methodology.superpowers: optional)"
+  exit 1
+fi
 # gstack lane (entirely optional — references/dependencies.md §4). When absent: ONE summary
 # line, not a wall of ✗ (a missing optional lane must not read as a broken product).
 GSTACK_HOME_DIR=""
@@ -59,7 +71,7 @@ if [ -n "$GSTACK_HOME_DIR" ]; then
   done
   echo "  ✓ gstack lane: $GS_HAVE/11 entries available ($GSTACK_HOME_DIR)${GS_MISS:+ — missing:$GS_MISS}"
 else
-  echo "  · gstack lane: not installed — optional, every step falls back (dependencies.md §4)"
+  echo "  · gstack lane: not installed — optional extra; superpowers owns review/debug/verification as primary (dependencies.md §4)"
 fi
 
 [ -n "$REPO" ] || { echo "✗ repo not resolved — set config.repo or pass the slash argument (/ultraloop owner/name)"; exit 1; }

@@ -82,6 +82,23 @@ else
   req_fail "gh-roadmap sub-skill missing"
 fi
 
+# superpowers — REQUIRED barrier (v0.16 #6): the loop's per-lane build methodology. Absent → FAIL
+# unless methodology.superpowers=optional (legacy loud-fallback). ue_superpowers_dir fixes the old
+# probe that missed the real plugins/cache/*/superpowers/* layout.
+SP_REQ="$(cfg_get methodology.superpowers required)"
+SP_DIR="$(ue_superpowers_dir || true)"
+if [ -n "$SP_DIR" ]; then
+  SP_N="$(ls "$SP_DIR/skills" 2>/dev/null | wc -l | tr -d ' ')"
+  echo "  ✓ superpowers methodology: $SP_DIR ($SP_N skills)"
+elif [ "$SP_REQ" = "optional" ]; then
+  echo "  · superpowers: not installed — methodology barrier DISABLED by config (legacy loud-fallback; not recommended)"
+else
+  echo "  ✗ superpowers plugin missing — the loop's build methodology is a REQUIRED barrier"
+  echo "     remedy: claude plugin install superpowers@claude-plugins-official  (or set ULTRALOOP_SUPERPOWERS_DIR=<dir>)"
+  echo "     or set methodology.superpowers: optional in ultraloop.config.yaml (legacy fallback — not recommended)"
+  req_fail "superpowers missing (methodology barrier — install it, or set methodology.superpowers: optional)"
+fi
+
 # ── optional (warnings only — never block exit) ──────────────────────────────────
 # self-hosted runner — best-effort; a permission/offline failure must not hard-fail (agent re-verifies in loop ①).
 RUN="$(gh api "repos/$REPO/actions/runners" --jq '[.runners[]|select(.status=="online")]|length' 2>/dev/null || echo "?")"
@@ -91,11 +108,14 @@ case "$RUN" in
   *)   echo "  ✓ self-hosted runner online: $RUN" ;;
 esac
 
-# superpowers (optional — one availability summary line).
-if [ -d "$HOME/.claude/skills/superpowers" ] || compgen -G "$HOME/.claude/plugins/*/skills/superpowers" >/dev/null 2>&1; then
-  echo "  ✓ superpowers: available"
+# native worktree provider (advisory only — never fails). orca+worktrees is the baseline environment
+# (worktree-strategy.md §6), NOT a runtime dependency: no script requires it, so CI/bats stay green without it.
+if command -v orca-ide >/dev/null 2>&1; then
+  echo "  ✓ native worktree provider: orca-ide (worktree-strategy.md §6)"
+elif command -v ows >/dev/null 2>&1; then
+  echo "  ✓ native worktree provider: ows (worktree-strategy.md §6)"
 else
-  echo "  · superpowers: not installed — optional (pm chain falls back to bundled skills)"
+  echo "  · native worktree provider: none — raw git worktrees only (orca/ows recommended; worktree-strategy.md §6)"
 fi
 
 # vendored pm skills (optional — one availability summary line).

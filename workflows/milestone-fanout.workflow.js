@@ -53,14 +53,48 @@ const GRAPH = {
     notes: { type: 'string' },
   },
 }
+// ULTRALOOP:METHODOLOGY v1 BEGIN — duplicated VERBATIM in lane-fanout.workflow.js AND
+// milestone-fanout.workflow.js (workflow scripts are single-file by contract — no imports,
+// workflow-tool-spec.md §5). Byte-parity is enforced by tests/workflow_contract.bats: edit BOTH or the suite fails.
+const METHODOLOGY = `MANDATORY METHODOLOGY (required barrier — no fallback, no substitute):
+Drive this card with these skills, invoked via the Skill tool by EXACT id. If the Skill tool reports any
+of them unavailable, STOP and return status=parked with blockReason "methodology unavailable: <id>".
+- superpowers:test-driven-development — governs the build: every behavior begins as a FAILING test,
+  committed as a test:* commit BEFORE the feat:/fix:* commit that makes it pass. Commit order on this branch
+  is machine-checked before merge (test:* must precede feat:/fix:*); out-of-order work will not merge.
+- superpowers:systematic-debugging — the moment any test or gate fails for a reason you do not already understand.
+- superpowers:requesting-code-review — after the gates are green, before opening the PR; fold findings in via superpowers:receiving-code-review.
+- superpowers:verification-before-completion — before returning status=ready (fresh evidence, never memory).
+- superpowers:finishing-a-development-branch — at close-out (do NOT merge; merging stays serialized outside the lane).
+Skill ids belong ONLY in these working instructions — never in board, issue, PR, or commit text.
+Fill the methodology field of your structured return truthfully; it is cross-examined against the branch.
+For a parked or failed return, still include a methodology object (empty skillsInvoked and empty redCommit/greenCommit are fine then).`
+const METHODOLOGY_VERIFY = `Also cross-examine the methodology evidence. Run, read-only:
+  bash "$CLAUDE_PLUGIN_ROOT/scripts/methodology_check.sh" <branch> --red <redCommit> --green <greenCommit>
+and treat any non-zero exit as a refutation. Confirm redCommit and greenCommit exist on the branch, redCommit is
+a test:* commit, and redCommit precedes greenCommit. A missing or fabricated methodology object = upheld:false.`
+const METHODOLOGY_EVIDENCE = {
+  type: 'object',
+  required: ['skillsInvoked', 'redCommit', 'greenCommit'],
+  properties: {
+    skillsInvoked: { type: 'array', items: { type: 'string' } }, // exact superpowers:* ids invoked, in order
+    redCommit: { type: 'string' },   // sha of the first failing-test (test:*) commit
+    greenCommit: { type: 'string' }, // sha of the feat:/fix:* commit that made it pass
+    debuggingUsed: { type: 'boolean' },
+    reviewFindings: { type: 'number' },
+  },
+}
+// ULTRALOOP:METHODOLOGY v1 END
+
 const LANE = {
   type: 'object',
-  required: ['status', 'summary'],
+  required: ['status', 'summary', 'methodology'],
   properties: {
     status: { enum: ['ready', 'failed', 'parked'] },
     branch: { type: 'string' }, pr: { type: 'number' }, evidencePath: { type: 'string' },
     designDocPath: { type: 'string' }, // repo-relative path of the card's design doc (lands with the merge)
     summary: { type: 'string' }, blockReason: { type: 'string' },
+    methodology: METHODOLOGY_EVIDENCE, // v0.16: test-first evidence, cross-examined against the branch
   },
 }
 const VERDICT = {
@@ -158,9 +192,12 @@ while (wave < maxWaves) {
 Goal-link: ${card.goalLink || '(missing — if truly absent on the card, stop and return status=parked)'}
 Acceptance criteria:\n${card.acceptance}
 ${card.e2e ? `E2E scenario:\n${card.e2e}` : ''}
+
+${METHODOLOGY}
+
 Work entirely inside your isolated worktree (it branches from fresh origin/${'{default}'} — prior waves are already merged in). Protocol:
 0. Design → Plan (BEFORE Red, per the design half): first author a concise single self-contained HTML design doc for THIS card's slice — house style (sidebar TOC, semantic Mermaid, one "design intent" note on what was intentionally left out); it describes the SYSTEM being built, never a tool/agent/automation. Save it in your worktree at docs/design/issue-${card.number}.html (it lands with the merge) and return its repo-relative path as designDocPath — do NOT write board fields from inside the worktree; the integrator records it on the card. Then write the card's "## Implementation plan" into the issue body (gh issue edit/comment is fine from here): file structure (files touched, one responsibility each), 3-6 right-sized TDD tasks each with a Consumes/Produces interface block, and NO placeholders (every code step shows code). Steps 1-4 below implement THAT plan.
-1. TDD — failing test first (Red), implement (Green), refactor. Atomic commits; commit/PR text in plain product language, never naming any tool, agent, or automation.
+1. Build per the MANDATORY METHODOLOGY above — superpowers:test-driven-development drives it: the failing test first (Red) committed as a test:* commit BEFORE the feat:/fix:* commit that makes it pass (Green), then refactor. Record the two shas as redCommit/greenCommit in the methodology field. Atomic commits; commit/PR text in plain product language, never naming any tool, agent, or automation.
 2. Repo quality gates (format · lint · typecheck · tests + coverage) all green.
 3. Push the branch and open a PR (do NOT merge — merging is serialized by the integrator).
 4. Pre-merge production E2E on a lane-isolated port; evidence to e2e/reports/ with an explicit **PASS**/**FAIL** marker.
@@ -169,11 +206,20 @@ Return status=ready only if gates green AND E2E **PASS** AND PR open. Blocked �
       ),
     (lane, card) => {
       if (!lane || lane.status !== 'ready') return { card: card.number, lane, verdict: null }
+      const md = lane.methodology || {}
+      if (!md.redCommit || !md.greenCommit) {
+        log(`#${card.number}: ready but methodology evidence missing (red/green commit ids) — rejected`)
+        return { card: card.number, lane: { ...lane, status: 'failed', blockReason: 'methodology evidence missing (no red/green commit ids)' }, verdict: null }
+      }
       return agent(
         `Adversarially verify a completion claim in repo ${repo}. Card #${card.number}: "${card.title}".
 Acceptance criteria:\n${card.acceptance}
 The lane claims: ${lane.summary} (branch ${lane.branch || '?'}, PR #${lane.pr || '?'}, evidence ${lane.evidencePath || '?'}).
-Try to REFUTE it: inspect the diff read-only, check every acceptance criterion against actual code/tests, read the E2E evidence for a real **PASS**. Default to upheld=false if uncertain.`,
+Methodology evidence claimed: red=${md.redCommit || '?'} green=${md.greenCommit || '?'} skills=[${(md.skillsInvoked || []).join(', ') || 'none'}].
+Try to REFUTE it: inspect the diff read-only, check every acceptance criterion against actual code/tests, read the E2E evidence for a real **PASS**.
+${METHODOLOGY_VERIFY}
+Concretely run: bash "$CLAUDE_PLUGIN_ROOT/scripts/methodology_check.sh" ${lane.branch || '?'} --red ${md.redCommit || ''} --green ${md.greenCommit || ''}
+Default to upheld=false if uncertain.`,
         { label: `verify:#${card.number}`, phase: 'Waves', effort: verification.effort, ...(verification.model ? { model: verification.model } : {}), schema: VERDICT }
       ).then(v => ({ card: card.number, lane, verdict: v }))
     }
@@ -187,8 +233,8 @@ Try to REFUTE it: inspect the diff read-only, check every acceptance criterion a
   if (verified.length) {
     // ONE integrator agent per wave = merge serialization enforced by structure, not by prompt.
     const integ = await agent(
-      `You are the integrator for repo ${repo}, wave ${wave} of milestone "${ms.title}". Merge these verified lanes ONE AT A TIME, in this order: ${JSON.stringify(verified.map(v => ({ number: v.card, branch: v.lane.branch, pr: v.lane.pr, evidencePath: v.lane.evidencePath, designDocPath: v.lane.designDocPath })))}.
-For each, sequentially: update the branch onto current origin default if needed (trivial conflicts only — anything non-trivial: skip with reason, do NOT improvise a resolution) → squash-merge the PR → confirm the default branch still builds/tests → update the board card (writes via ${'`bash "$CLAUDE_PLUGIN_ROOT/scripts/board.sh"`'} — never raw graphql; issue url = https://github.com/${repo}/issues/<number>): status Done + evidence <evidencePath> + design <designDocPath if present> + wave ${wave}, and a short completion comment in plain product language. If a merge breaks the default branch, revert it and skip that card with the reason. Report exactly what merged and what was skipped.`,
+      `You are the integrator for repo ${repo}, wave ${wave} of milestone "${ms.title}". Merge these verified lanes ONE AT A TIME, in this order: ${JSON.stringify(verified.map(v => ({ number: v.card, branch: v.lane.branch, pr: v.lane.pr, evidencePath: v.lane.evidencePath, designDocPath: v.lane.designDocPath, redCommit: (v.lane.methodology || {}).redCommit, greenCommit: (v.lane.methodology || {}).greenCommit })))}.
+For each, sequentially: update the branch onto current origin default if needed (trivial conflicts only — anything non-trivial: skip with reason, do NOT improvise a resolution) → run the methodology evidence gate ${'`bash "$CLAUDE_PLUGIN_ROOT/scripts/methodology_check.sh" <branch> --red <redCommit> --green <greenCommit>`'} and if it exits non-zero, SKIP that card with the check's FAIL line as the reason (do NOT merge) → squash-merge the PR → confirm the default branch still builds/tests → update the board card (writes via ${'`bash "$CLAUDE_PLUGIN_ROOT/scripts/board.sh"`'} — never raw graphql; issue url = https://github.com/${repo}/issues/<number>): status Done + evidence <evidencePath> + design <designDocPath if present> + wave ${wave}, and a short completion comment in plain product language. If a merge breaks the default branch, revert it and skip that card with the reason. Report exactly what merged and what was skipped.`,
       { label: `integrate:wave${wave}`, phase: 'Waves', model: coding.model, effort: coding.effort, schema: INTEGRATE }
     )
     const okSet = new Set((integ && integ.merged) || [])

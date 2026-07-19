@@ -136,6 +136,16 @@ stack:
   lint_command: ""                # e.g. "ruff check ."
   build_command: ""               # e.g. "docker build ."
 
+# ── Build methodology — the per-lane discipline is a REQUIRED BARRIER (v0.16) ─────
+#  Every coding lane is driven by the superpowers skill chain (test-driven-development ·
+#  systematic-debugging · requesting/receiving-code-review · verification-before-completion ·
+#  finishing-a-development-branch). Missing plugin = the loop STOPS at the doctor/bootstrap barrier
+#  (like the pm strategy-red-team barrier); there is no built-in Red→Green→Refactor fallback anymore.
+methodology:
+  superpowers: required           # required (default) | optional (legacy loud-fallback — NOT recommended)
+  tdd_evidence: enforce           # enforce | warn | off — deterministic pre-merge commit-order gate:
+                                  #   test:* must precede feat:/fix:* per lane branch (methodology_check.sh; ship_pr exit 7)
+
 # ── Production E2E (Tier 2) — pre-merge gate ★ ──────────────────────────────
 e2e:
   runner: auto                    # auto | docker_compose | readme_command

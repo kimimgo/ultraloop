@@ -47,16 +47,39 @@ ship in `skills/`; the rest are called by name and fall back loudly if absent.
 | **pm** · board write | **`gh-roadmap`** ★ shared sub-skill | Board · fields · views · roadmap · multi-repo — writes a THIN board (north star + seed cards only) |
 | **design** · doc | **`imgyu-techdoc`** ★ bundled | one card → single self-contained HTML design doc → `artifacts-ops` publish → card `Design-Doc` field (`card-container.md`) |
 | **design** · plan | `card-planning.md` (from superpowers `writing-plans`) | the on-card implementation plan, authored in parallel with the design doc |
-| **loop** · build | `tdd-workflow` · superpowers | Tier1 TDD (Red→Green→Refactor) |
+| **loop** · build | **superpowers chain (REQUIRED BARRIER — absent = STOP)**: `test-driven-development` → `requesting`/`receiving-code-review`; `systematic-debugging` on failure; `verification-before-completion` before any done; `finishing-a-development-branch` at close | Tier1 TDD (Red→Green→Refactor) + methodology — no built-in fallback (see §2.5) |
 | **loop** · waves | shipped `milestone-fanout` / `lane-fanout` (Workflow tool) | parallel worktree-isolated lanes (`dynamic-workflow-design.md` · `workflow-tool-spec.md`) |
-| **loop** · verify/review/deploy | `gstack-qa` · `gstack-review` · `gstack-investigate` · `gstack-ship` | Use if present (own scripts are the fallback) |
+| **loop** · verify/review/deploy | `gstack-qa` · `gstack-review` · `gstack-investigate` · `gstack-ship` | superpowers is PRIMARY for review/debug/verification (§2.5); gstack-* demoted to "optional extra alongside (never a substitute)" — use if present (own scripts are the fallback) |
 | **loop** · board status | **`gh-roadmap`** ★ shared sub-skill | card status moves + evidence |
 
 ---
 
+## 2.5 Methodology barrier (v0.16)
+
+The **superpowers** methodology chain is the FORCED per-lane build methodology — a REQUIRED BARRIER like pm's `strategy-red-team`. It is not optional and has no built-in fallback.
+
+| Loop unit | superpowers skill id |
+|---|---|
+| Red→Green→Refactor (per lane) | `superpowers:test-driven-development` |
+| bug / gate failure / unexpected behavior | `superpowers:systematic-debugging` |
+| pre-merge review (request → receive) | `superpowers:requesting-code-review` · `superpowers:receiving-code-review` |
+| before any "done"/"passing" claim | `superpowers:verification-before-completion` |
+| lane close (merge/PR/cleanup) | `superpowers:finishing-a-development-branch` |
+| lane isolation (worktree) | `superpowers:using-git-worktrees` |
+
+**Five enforcement layers (the barrier is deterministic, not trust-based):**
+
+1. **Barrier at doctor/bootstrap** — the availability probe treats superpowers as required: absent → ✗ FAIL (bootstrap does not pass, `doctor` reports ✗), same rank as a missing red-team barrier. (Escape hatch: `methodology.superpowers: optional` downgrades this to a loud warning — the legacy loud-fallback, not recommended.)
+2. **MANDATORY METHODOLOGY prompt block** — every lane carries a standing instruction block; if the Skill is unavailable at lane time the lane STOPs and returns **parked** (never a silent solo-agent build).
+3. **Schema-forced methodology evidence** — the LANE return object carries a required `methodology` object (`skillsInvoked` / `redCommit` / `greenCommit`); a lane that omits it is malformed.
+4. **Deterministic `methodology_check.sh` commit-order gate** — checks that `test:*` precedes `feat:`/`fix:*` on the lane branch, wired into `ship_pr.sh` (exit 7 = no merge) + the milestone integrator + the adversarial verifier's cross-exam.
+5. **Config switch** — `methodology.tdd_evidence: enforce|warn|off` sets the strictness of layer 4.
+
+> **Honest limitation.** A lane's Skill-tool *call* itself can't be read downstream — self-reported `skillsInvoked` could be fabricated. So the barrier does NOT rely on it: it forces the *outcome* deterministically (commit ordering, machine-checked), which a fabricated `skillsInvoked` cannot fake.
+
 ## 3. Rules
 
-- **Invoke if present, fall back if absent.** When a skill is missing, ultraloop does the work itself with the same output format. State the absence explicitly (no silent degrade).
+- **Invoke if present, fall back if absent.** When a skill is missing, ultraloop does the work itself with the same output format. State the absence explicitly (no silent degrade). **Two exceptions are barriers, not fall-backs:** pm's `strategy-red-team` and the superpowers methodology chain (§2.5) — absent → STOP, never a silent solo build.
 - **The gstack family** is *guided* in loop's E2E/review/deploy stages (not required). ultraloop's `e2e_run.sh` · `ship_pr.sh` are the fallback paths.
 - **The bootstrap probe** checks skill availability (`~/.claude/skills`, `claude plugin list`). Warn clearly if gh-roadmap is missing.
 - None of these invocations/tools are **exposed in externally visible text on boards/issues/PRs/commits** (`messaging.md` — human-written product language only).
@@ -67,6 +90,8 @@ If the [gstack](https://github.com/gstackio) skill suite is installed in the use
 ultraloop calls it at the mapped steps below. **Every entry is optional and degrades to a
 built-in path, loudly.** No gstack → the probe prints ONE summary line
 (`gstack lane: not installed — optional, every step falls back`) and nothing else changes.
+Since v0.16 gstack is **additive to (never a substitute for) the superpowers chain (§2.5)** — the
+superpowers barrier runs regardless; gstack review/investigate/qa are optional extras alongside it.
 
 **The load-bearing split — interactive vs headless.** A blocking prompt inside an unattended
 loop is a stall. So: *interactive* gstack skills belong only to the human-present phase
